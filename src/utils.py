@@ -3,10 +3,6 @@
 from comet_ml import API
 import logging
 import pickle
-import warnings
-from comet_ml import Experiment
-from comet_ml import ConfusionMatrix
-import sklearn
 import os
 
 logging.basicConfig(level=logging.INFO)
@@ -50,10 +46,10 @@ TRAIN_COLS_PART_4 = [
     "is_rebound",
     "rebound_angle",
     "is_empty_net",
-]  # 'period_type', 'shooter_team_name', 'shooter_id', 'goalie_name',
+] 
 
 
-MODEL_XGB_NC = {
+MODEL_XGB_NON_CORR = {
     "model_type": "xgboost_non_corr",
     "Name": "XGBoost with Non Correlated Features",
     "CometModelName": "xgboost-feats-non-corr",
@@ -62,28 +58,28 @@ MODEL_XGB_NC = {
     "Col": TRAIN_COLS_PART_4,
 }
 
-
-
-
 RANDOM_STATE = 1729
 
 
 # Functions
-        
-# Download registered models from Comet and load the models
-def Retrieve_Comet(ModelComet, Download = False):
-    if Download == True:
+
+
+def retrieve_comet_model(comet_model = MODEL_XGB_NON_CORR, download=False):
+    """
+    Download registered models from Comet and load the models
+    comet_model: dictionary that contains the model name used on Comet and the version number
+    """
+    if download == True:
         api = API()
         api.download_registry_model(
             EXP_KWARGS["workspace"],
-            ModelComet["CometModelName"],
-            ModelComet["Version"],
+            comet_model["CometModelName"],
+            comet_model["Version"],
             output_path="./models",
             expand=True,
         )
-    else:
-        with open(
-            os.path.join("./models/", ModelComet["FileName"] + ".pickle"), "rb"
-        ) as fid:
-            Model = pickle.load(fid)
-    return Model
+    
+    with open(os.path.join("./models/xgboost_feats_non_corr.pickle"), "rb") as fid:
+        model = pickle.load(fid)
+    
+    return model
