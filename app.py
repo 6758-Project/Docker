@@ -10,6 +10,7 @@ gunicorn can be installed via:
 """
 import os
 from pathlib import Path
+import json
 import logging
 from flask import Flask, jsonify, request, abort
 import sklearn
@@ -19,9 +20,7 @@ import joblib
 
 import ift6758
 
-
 LOG_FILE = os.environ.get("FLASK_LOG", "flask.log")
-
 
 app = Flask(__name__)
 
@@ -32,11 +31,20 @@ def before_first_request():
     Hook to handle any initialization before the first request (e.g. load model,
     setup logging handler, etc.)
     """
+
     # TODO: setup basic logging configuration
-    logging.basicConfig(filename=LOG_FILE, level=logging.INFO)
+    logging_format = '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s'
+    logging.basicConfig(filename=LOG_FILE, format=logging_format, level=logging.DEBUG)
 
     # TODO: any other initialization before the first request (e.g. load default model)
     pass
+
+
+@app.route("/", methods=["GET"])
+def home():
+    """home screen """
+    app.logger.info('welcome screen')
+    return '<h1>Hello Milestone 3!</h1>'
 
 
 @app.route("/logs", methods=["GET"])
@@ -44,10 +52,15 @@ def logs():
     """Reads data from the log file and returns them as the response"""
     
     # TODO: read the log file specified and return the data
-    raise NotImplementedError("TODO: implement this endpoint")
-
-    response = None
-    return jsonify(response)  # response must be json serializable!
+    logs_lines = '<h3>'
+    with open("flask.log", "r") as f:
+        lines = f.read().splitlines()
+        for idx, line in enumerate(lines):
+            logs_lines += line.strip()
+            logs_lines += '<br>'
+    logs_lines += '</h3>'
+    response = logs_lines
+    return response  # response must be json serializable!
 
 
 @app.route("/download_registry_model", methods=["POST"])
