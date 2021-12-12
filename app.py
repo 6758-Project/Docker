@@ -67,15 +67,26 @@ def home():
 def logs():
     """Reads data from the log file and returns them as the response"""
 
-    # read the log file specified and return the data
-    logs_lines = "<h3>"
+    # # read the log file specified and return the data
+
+    # html friendly format
+    # logs_lines = "<h3>"
+    # with open("flask.log", "r") as f:
+    #     lines = f.read().splitlines()
+    #     for line in lines:
+    #         logs_lines += line.strip()
+    #         logs_lines += "<br>"
+    # logs_lines += "</h3>"
+    # response = logs_lines
+
+    # json friendly format
+    logs_lines = {}
     with open("flask.log", "r") as f:
         lines = f.read().splitlines()
-        for line in lines:
-            logs_lines += line.strip()
-            logs_lines += "<br>"
-    logs_lines += "</h3>"
-    response = logs_lines
+        for idx, line in enumerate(lines):
+            logs_lines[f"log_line#{idx}"] = line.strip()
+    response = json.dumps(logs_lines)
+
     return response  # response must be json serializable!
 
 
@@ -188,9 +199,9 @@ def predict():
 
         app.logger.info(f"Prediction of {LABEL_COL}?: {y_pred}")
         app.logger.info(f"Probability of the prediction: {y_proba}")
-
-        tmp_response_dct = {"y_pred": y_pred, "y_proba": y_proba}
-        response = pd.DataFrame(tmp_response_dct).to_json()
+        
+        pred_df = pd.DataFrame(y_pred, columns=['predictions']) 
+        response = pred_df.to_json()
         app.logger.info("Predictions and their probabilities retrieved successfully ... ")
 
     except:
