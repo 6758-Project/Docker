@@ -9,18 +9,25 @@ gunicorn can be installed via:
 
 """
 import os
-from pathlib import Path
-import json
 import logging
-from flask import Flask, jsonify, request, abort
-import sklearn
+import pickle
+import json
+from flask import Flask, jsonify, request
+from comet_ml import API
 import pandas as pd
-import joblib
-
 
 import ift6758
 
 LOG_FILE = os.environ.get("FLASK_LOG", "flask.log")
+
+LABEL_COL = "is_goal"
+
+MODEL_DIR = "./models"
+MODEL_NAME = "xgboost_feats_non_corr.pickle"
+MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
+
+global comet_model
+
 
 app = Flask(__name__)
 
@@ -32,33 +39,42 @@ def before_first_request():
     setup logging handler, etc.)
     """
 
-    # TODO: setup basic logging configuration
-    logging_format = '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s'
-    logging.basicConfig(filename=LOG_FILE, format=logging_format, level=logging.DEBUG)
+    # setup basic logging configuration
+    logging_format = (
+        "[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s"
+    )
+    logging.basicConfig(filename=LOG_FILE, format=logging_format, level=logging.INFO)
 
-    # TODO: any other initialization before the first request (e.g. load default model)
+    # any other initialization before the first request (e.g. load default model)
+    try:
+        with open(MODEL_PATH, "rb") as model_pickle_file:
+            comet_model = pickle.load(model_pickle_file)
+        app.logger.info("default model was found and loaded successfully ...")
+    except:
+        app.logger.exception(f"default model failed to load from: {MODEL_PATH}")
+
     pass
 
 
 @app.route("/", methods=["GET"])
 def home():
-    """home screen """
-    app.logger.info('welcome screen')
-    return '<h1>Hello Milestone 3!</h1>'
+    """home screen"""
+    app.logger.info("welcome screen")
+    return "<h1>Hello Milestone 3!</h1>"
 
 
 @app.route("/logs", methods=["GET"])
 def logs():
     """Reads data from the log file and returns them as the response"""
-    
-    # TODO: read the log file specified and return the data
-    logs_lines = '<h3>'
+
+    # read the log file specified and return the data
+    logs_lines = "<h3>"
     with open("flask.log", "r") as f:
         lines = f.read().splitlines()
-        for idx, line in enumerate(lines):
+        for line in lines:
             logs_lines += line.strip()
-            logs_lines += '<br>'
-    logs_lines += '</h3>'
+            logs_lines += "<br>"
+    logs_lines += "</h3>"
     response = logs_lines
     return response  # response must be json serializable!
 
@@ -78,29 +94,67 @@ def download_registry_model():
             version: (required),
             ... (other fields if needed) ...
         }
-    
+
     """
-    # Get POST json data
-    json = request.get_json()
-    app.logger.info(json)
+    # Get POST json data (the data point to predict)
+    json_req = request.get_json()
+    app.logger.info(f"Model information: {json_req}")
+    COMET_MODEL_INFO = json.loads(json_req)
+    output_msg = None
 
-    # TODO: check to see if the model you are querying for is already downloaded
-
-    # TODO: if yes, load that model and write to the log about the model change.  
+    # check to see if the model you are querying for is already downloaded
+    # if yes, load that model and write to the log about the model change.
     # eg: app.logger.info(<LOG STRING>)
-    
-    # TODO: if no, try downloading the model: if it succeeds, load that model and write to the log
-    # about the model change. If it fails, write to the log about the failure and keep the 
+    if os.path.isfile(MODEL_PATH):
+        app.logger.info(f"model already downloaded in {MODEL_PATH}")
+
+        try:
+            with open(MODEL_PATH, "rb") as model_pickle_file:
+                comet_model = pickle.load(model_pickle_file)
+            app.logger.info("model loaded successfully ...")
+            output_msg = "Model loaded successfully - for more information check \\logs"
+        except:
+            output_msg = "Model failed to load - for more information check \\logs"
+            app.logger.exception(f"model failed to load from {MODEL_PATH}")
+
+    # if no, try downloading the model: if it succeeds, load that model and write to the log
+    # about the model change. If it fails, write to the log about the failure and keep the
     # currently loaded model
+
+    try:
+        # make sure the path exists
+        if not os.path.exists(MODEL_DIR):
+            os.makedirs(MODEL_DIR)
+
+        comet_api = API()
+        comet_api.download_registry_model(
+            COMET_MODEL_INFO["workspace"],
+            COMET_MODEL_INFO["model_name"],
+            COMET_MODEL_INFO["version"],
+            output_path=MODEL_DIR,
+            expand=True,
+        )
+        app.logger.info(f"model downloaded successfully in: {MODEL_PATH}")
+
+        try:
+            with open(MODEL_PATH, "rb") as model_pickle_file:
+                comet_model = pickle.load(model_pickle_file)
+            output_msg = "model downloaded and loaded successfully - for more information check \\logs"
+            app.logger.info("model loaded successfully ...")
+
+        except:
+            output_msg = f"model failed to load from: {MODEL_PATH}"
+            app.logger.exception(f"model failed to load from: {MODEL_PATH}")
+
+    except:
+        output_msg = "model failed to download - for more information check \\logs"
+        app.logger.exception("model failed to download")
 
     # Tip: you can implement a "CometMLClient" similar to your App client to abstract all of this
     # logic and querying of the CometML servers away to keep it clean here
 
-    raise NotImplementedError("TODO: implement this endpoint")
+    response = output_msg
 
-    response = None
-
-    app.logger.info(response)
     return jsonify(response)  # response must be json serializable!
 
 
@@ -112,13 +166,43 @@ def predict():
     Returns predictions
     """
     # Get POST json data
-    json = request.get_json()
-    app.logger.info(json)
+    json_req = request.get_json()
 
-    # TODO:
-    raise NotImplementedError("TODO: implement this enpdoint")
-    
-    response = None
+    # predict the datapoint (first row if a dataframe has rows > 1)
+    data_dct = json.loads(json_req)
+    data_df = pd.DataFrame(data_dct)
 
-    app.logger.info(response)
+    # remove the label column if it exists
+    data_df = data_df[data_df.columns.difference([LABEL_COL])]
+
+    # grap the first row form the dataframe
+    data_point = None
+    if len(data_df) > 1:
+        data_point = data_df.iloc[0]
+
+    app.logger.info(f"Predicting: \n {data_point}")
+
+    # prepare the data point for prediction
+    data_point = data_df.iloc[0].values.reshape(1, -1)
+
+    # get the prediction and prediction probability
+    try:
+
+        with open(MODEL_PATH, "rb") as model_pickle_file:
+            comet_model = pickle.load(model_pickle_file)
+
+        y_pred = comet_model.predict(data_point)
+        y_proba = comet_model.predict_proba(data_point)[:, 1]
+
+        app.logger.info(f"Prediction of {LABEL_COL}?: {y_pred[0]}")
+        app.logger.info(f"Probability of the prediction: {y_proba[0]:.4f}")
+
+        tmp_response_dct = {"pred": str(y_pred[0]), "proba": str(y_proba[0])}
+        response = json.dumps(tmp_response_dct)
+
+    except:
+        app.logger.exception(f"model failed to load from: {MODEL_PATH}")
+        app.logger.exception(f"No model to use. comet_model={comet_model}")
+        response = None
+
     return jsonify(response)  # response must be json serializable!
