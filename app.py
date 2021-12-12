@@ -175,15 +175,7 @@ def predict():
     # remove the label column if it exists
     data_df = data_df[data_df.columns.difference([LABEL_COL])]
 
-    # grap the first row form the dataframe
-    data_point = None
-    if len(data_df) > 1:
-        data_point = data_df.iloc[0]
-
-    app.logger.info(f"Predicting: \n {data_point}")
-
-    # prepare the data point for prediction
-    data_point = data_df.iloc[0].values.reshape(1, -1)
+    app.logger.info(f"Predicting: {len(data_df)} events")
 
     # get the prediction and prediction probability
     try:
@@ -191,14 +183,15 @@ def predict():
         with open(MODEL_PATH, "rb") as model_pickle_file:
             comet_model = pickle.load(model_pickle_file)
 
-        y_pred = comet_model.predict(data_point)
-        y_proba = comet_model.predict_proba(data_point)[:, 1]
+        y_pred = comet_model.predict(data_df)
+        y_proba = comet_model.predict_proba(data_df)[:, 1]
 
-        app.logger.info(f"Prediction of {LABEL_COL}?: {y_pred[0]}")
-        app.logger.info(f"Probability of the prediction: {y_proba[0]:.4f}")
+        app.logger.info(f"Prediction of {LABEL_COL}?: {y_pred}")
+        app.logger.info(f"Probability of the prediction: {y_proba}")
 
-        tmp_response_dct = {"pred": str(y_pred[0]), "proba": str(y_proba[0])}
-        response = json.dumps(tmp_response_dct)
+        tmp_response_dct = {"y_pred": y_pred, "y_proba": y_proba}
+        response = pd.DataFrame(tmp_response_dct).to_json()
+        app.logger.info("Predictions and their probabilities retrieved successfully ... ")
 
     except:
         app.logger.exception(f"model failed to load from: {MODEL_PATH}")
