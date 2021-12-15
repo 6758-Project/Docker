@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class ServingClient:
-    def __init__(self, ip: str = "0.0.0.0", port: int = 5000, features=None):
+    def __init__(self, ip: str = "127.0.0.1", port: int = 5000, features=None):
         self.base_url = f"http://{ip}:{port}"
         logger.info(f"Initializing client; base URL: {self.base_url}")
 
@@ -22,7 +22,6 @@ class ServingClient:
         self.features = features
 
         # any other potential initialization
-
 
     def predict(self, X_data: pd.DataFrame) -> pd.DataFrame:
         """
@@ -37,18 +36,18 @@ class ServingClient:
         pred_response = requests.post(self.base_url + "/predict", json=X_data_json)
         pred_response_json = pred_response.json()
 
-        pred_dct = json.loads(pred_response_json)["predictions"]        
-        pred_df = pd.DataFrame(pred_dct.values(), columns=['predictions'], index=X_data.index)
+        pred_dct = json.loads(pred_response_json)["predictions"]
+        pred_df = pd.DataFrame(
+            pred_dct.values(), columns=["predictions"], index=X_data.index
+        )
 
         return pred_df
-
 
     def get_logs(self) -> dict:
         """Get server logs"""
         logs_response = requests.get(self.base_url + "/logs")
         pretty_logs = json.dumps(logs_response.json(), indent=4, sort_keys=True)
         return pretty_logs
-
 
     def download_registry_model(
         self, workspace: str, model_name: str, version: str
@@ -104,11 +103,9 @@ if __name__ == "__main__":
     download_res_msg = app_client.download_registry_model(
         workspace="tim-k-lee", model_name="xgboost-feats-non-corr", version="1.0.1"
     )
-    logging.info(
-            f"API response for download_registry_model: {download_res_msg}"
-        )
+    logging.info(f"API response for download_registry_model: {download_res_msg}")
 
     # predict test data from milestone 2 (preprocessed for the best performer xgboost model)
     X_test = pd.read_csv("../data/offline_test_data.csv")
-    y_preds = app_client.predict(X_test) 
+    y_preds = app_client.predict(X_test)
     logging.info(f"predicting {len(y_preds)} events")
