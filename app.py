@@ -8,18 +8,23 @@ gunicorn can be installed via:
     $ pip install gunicorn
 
 """
-import os
-import logging
-import pickle
 import json
+import logging
+import os
+import pickle
+import re
+from time import gmtime, strftime
+
 from flask import Flask, jsonify, request
 from comet_ml import API
+
 import pandas as pd
 import numpy as np
 
 import ift6758
 
-LOG_FILE_PATH = os.environ.get("FLASK_LOG", "flask.log")
+default_flask_file = re.sub("[^0-9a-zA-Z]+", "_", strftime("%Y-%m-%d-%H-%M-%S", gmtime()))
+LOG_FILE_PATH = os.environ.get("FLASK_LOG", f"flask_{default_flask_file}.log")
 
 LABEL_COL = "is_goal"
 
@@ -34,7 +39,6 @@ DEFAULT_MODEL_INFO = {
     "version": "1.0.1",
     "file_name": "xgboost_feats_non_corr",
 }
-
 
 comet_model = None
 
@@ -82,7 +86,11 @@ def before_first_request():
         filename=LOG_FILE_PATH, format=logging_format, level=logging.INFO
     )
 
-    # load default model
+    with open(LOG_FILE_PATH, "w") as log_file:
+        log_file.write("")
+
+    app.logger.info(f"prediction API is now running")
+
     load_model(DEFAULT_MODEL_INFO)
 
 
@@ -99,7 +107,7 @@ def logs():
 
     # read the log file specified and return the data
     logs_lines = {}
-    with open("flask.log", "r") as log_file:
+    with open(LOG_FILE_PATH, "r") as log_file:
         lines = log_file.read().splitlines()
         for idx, line in enumerate(lines):
             logs_lines[f"log_line#{idx}"] = line.strip()
@@ -150,18 +158,17 @@ def predict():
     Returns predictions
     """
     requested_preds = request.get_json()
-
     requested_preds = pd.DataFrame(json.loads(requested_preds))
 
     global comet_model
 
     # remove the label column if it exists
-    data_df = data_df[data_df.columns.difference([LABEL_COL])]
+    requested_preds = requested_preds[requested_preds.columns.difference([LABEL_COL])]
 
-    app.logger.info(f"Predicting: {len(data_df)} events")
+    app.logger.info(f"Predicting: {len(requested_preds)} events")
 
     try:
-        y_proba = comet_model.predict_proba(data_df)
+        y_proba = comet_model.predict_proba(requested_preds)[:, 1]
         pred_df = pd.DataFrame(y_proba, columns=["predictions"])
         response = pred_df.to_json()
         app.logger.info("Predictions retrieved successfully ... ")
