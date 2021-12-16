@@ -37,7 +37,7 @@ class PredictorAPIClient:
 
         pred_dct = json.loads(pred_response_json)["predictions"]
         pred_df = pd.DataFrame(
-            pred_dct.values(), columns=["predictions"], index=x_processed.index
+            pred_dct.values(), columns=["predictions"], index=x_data.index
         )
 
         return pred_df
@@ -66,13 +66,14 @@ class PredictorAPIClient:
             model (str): The model in the Comet ML registry to download
             version (str): The model version to download (defaults to most-recent)
         """
-        response = None
 
         if comet_model_name not in AVAILABLE_MODELS.keys():
             logging.exception(
                 f"{comet_model_name} doesn't exist. Available models are: {AVAILABLE_MODELS.keys()}"
             )
             logging.info(f"model is still {self.curr_comet_model_name}")
+
+            return None
         else:
             comet_model_info = AVAILABLE_MODELS[comet_model_name]
             comet_model_info["workspace"] = workspace

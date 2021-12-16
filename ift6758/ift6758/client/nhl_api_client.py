@@ -1,10 +1,11 @@
 import logging
 import os
 import requests
-
 from typing import Callable
 
 import pandas as pd
+
+from .utils import parse_game_data
 
 logger = logging.getLogger()
 
@@ -42,15 +43,15 @@ class NHLAPIClient:
 
         if game_id in self.loaded_games.keys():
             events = self.loaded_games[game_id]
-            previous_returned_idx = events['event_idx'].max()
+            previous_returned_idx = events['event_index'].max()
 
-        elif game_id in available_games:
+        elif game_id in self.available_games:
             events = pd.read_csv(os.path.join(self.raw_game_directory, str(game_id)+".csv"))
         else:
             events = None
 
         previously_unseen_game = events is None
-        incomplete_game = previously_unseen_game or ("GAME END" not in events)
+        incomplete_game = previously_unseen_game or ("Game End" not in list(events['description']))
 
         if previously_unseen_game or incomplete_game:
             new_events = self.query_api(game_id)
@@ -64,11 +65,12 @@ class NHLAPIClient:
         events = preprocess_func(events)
 
         if incremental_only:
-            events = events[events['event_idx']>previous_returned_idx]
+            events = events[events['event_index']>previous_returned_idx]
 
         return events
 
-    def query_api(self, game_id: int):
+    @staticmethod
+    def query_api(game_id: int):
         url = f"https://statsapi.web.nhl.com/api/v1/game/{game_id}/feed/live/"
         response = requests.get(url)
 

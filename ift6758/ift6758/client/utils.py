@@ -16,21 +16,21 @@ STANDARDIZED_GOAL_COORDINATES = (89, 0)
 LABEL_COL = "is_goal"
 AVAILABLE_MODELS = {
     "logistic-regression-distance-only": {
-        "model_type": "logreg",
+        "model_type": "logistic-regression",
         "model_desc": "Logistic Regression Distance Only",
         "comet_model_name": "logistic-regression-distance-only",
         "version": "1.0.2",
         "file_name": "LR_distance_only",
     },
     "logistic-regression-angle-only": {
-        "model_type": "logreg",
+        "model_type": "logistic-regression",
         "model_desc": "Logistic Regression Angle Only",
         "comet_model_name": "logistic-regression-angle-only",
         "version": "1.0.3",
         "file_name": "LR_angle_only",
     },
     "logistic-regression-distance-and-angle": {
-        "model_type": "logreg",
+        "model_type": "logistic-regression",
         "model_desc": "Logistic Regression Distance and Angle",
         "comet_model_name": "logistic-regression-distance-and-angle",
         "version": "1.0.2",
@@ -65,14 +65,14 @@ AVAILABLE_MODELS = {
         "file_name": "NN_adv",
     },
     "lr-all-feats": {
-        "model_type": "logreg_all",
+        "model_type": "logistic-regression_all",
         "model_desc": "logistic Regression with all Features in (Q4)",
         "comet_model_name": "lr-all-feats",
         "version": "1.0.0",
         "file_name": "lr_all_feats",
     },
     "lr-non-corr-feats": {
-        "model_type": "logreg_non_corr_feats",
+        "model_type": "logistic-regression_non_corr_feats",
         "model_desc": "Logistic Regression without Correlated Features",
         "comet_model_name": "lr-non-corr-feats",
         "version": "1.0.0",
@@ -86,7 +86,7 @@ AVAILABLE_MODELS = {
         "file_name": "xgboost_SMOTE",
     },
     "lr-SMOTE": {
-        "model_type": "logreg_SMOTE",
+        "model_type": "logistic-regression_SMOTE",
         "model_desc": "Logistic Regression with SMOTE Oversampling",
         "comet_model_name": "lr-SMOTE",
         "version": "1.0.0",
@@ -396,14 +396,15 @@ LG_ALL_df = pd.DataFrame.from_dict(
 def get_preprocess_function(model_keyword: str):
     """ Returns preprocessing functions associated with model keywords"""
     preprocess_functions = {
-        "logreg-dist": lambda data: LG_preprocess(data, dist=True),
-        "logreg-ang": lambda data: LG_preprocess(data, ang=True),
-        "logreg-dist-ang": LG_preprocess,
-        "logreg-all": preprocess_lr_all,
-        "logreg-smote": preprocess_lr_smote,
-        "logreg-non-corr-feats": preprocess_lr_smote,
+        "logistic-regression-distance-only": lambda data: LG_preprocess(data, dist=True),
+        "logistic-regression-angle-only": lambda data: LG_preprocess(data, ang=True),
+        "logistic-regression-distance-and-angle": LG_preprocess,
+        "lr-all-feats": preprocess_lr_all,
+        "lr-smote": preprocess_lr_smote,
+        "lr-non-corr-feats": preprocess_lr_smote,
         "xgboost-shap": XGB_SHAP_preprocess,
         "xgboost-lasso": XGB_Lasso_preprocess,
+        "xgboost-feats-non-corr": XGB_Non_Corr_preprocess,
         "xgboost-non-corr": XGB_Non_Corr_preprocess,
         "xgboost-smote": XGB_Non_Corr_preprocess,
         "nn-adv": NN_preprocess,
@@ -515,7 +516,7 @@ def XGB_SHAP_preprocess(data):
         to_replace=INFREQUENT_STOPPAGE_EVENTS, value="STOP", inplace=True
     )
 
-    data = pd.get_dummies(X_data, ["shot", "prev_event"])
+    data = pd.get_dummies(data, ["shot", "prev_event"])
 
     for col in LG_ALL_SCALE.columns:
         if col not in data:
@@ -562,14 +563,14 @@ def XGB_Non_Corr_preprocess(data):
     redundant_feats = ["is_rebound", "coordinate_y", "coordinate_x", "period"]
 
     # Training and validation data of the selected features
-    selected_feats = X_data.columns.difference(redundant_feats)
-    X_data = X_data[selected_feats]
-    X_data = X_data.dropna(axis=0)
+    selected_feats = data.columns.difference(redundant_feats)
+    data = data[selected_feats]
+    data = data.dropna(axis=0)
 
     for col in NON_CORR_COLS:
-        if col not in X_data:
-            X_data[col] = 0
-    data_processed = X_data[NON_CORR_COLS]
+        if col not in data:
+            data[col] = 0
+    data_processed = data[NON_CORR_COLS]
 
     return data_processed
 
