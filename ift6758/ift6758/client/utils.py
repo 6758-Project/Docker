@@ -347,6 +347,13 @@ def preprocess_for_model(data, model_type):
 
 def LG_preprocess(data, dist=False, ang=False):
 
+    if dist:
+        data = data[["distance_from_net"]]
+    elif ang:
+        data = data[["angle"]]
+    else:
+        data = data[["distance_from_net", "angle"]]
+
     na_mask = data.isnull().any(axis=1)
     data = data[~na_mask]
 
