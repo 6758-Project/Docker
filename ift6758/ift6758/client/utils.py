@@ -1,13 +1,6 @@
 """
 Extracts the events information from the downloaded data with the NHL API.
 """
-import argparse
-import glob
-import os
-import json
-import logging
-import math
-
 import numpy as np
 import pandas as pd
 
@@ -15,7 +8,6 @@ from datetime import timedelta
 
 
 STANDARDIZED_GOAL_COORDINATES = (89, 0)
-
 
 LABEL_COL = "is_goal"
 
@@ -29,6 +21,42 @@ INFREQUENT_STOPPAGE_EVENTS = [
     "PENALTY",
     "GOAL",
     "CHALLENGE",
+]
+
+SHAP_COLS = [
+    "distance_from_net",
+    "is_rebound",
+    "prev_event_SHOT",
+    "prev_event_time_diff",
+    "angle",
+    "is_empty_net",
+    "shot_Snap Shot",
+    "shot_Slap Shot",
+    "distance_from_prev_event",
+    "coordinate_y",
+    "prev_event_HIT",
+]
+
+LASSO_COLS = [
+    "coordinate_x",
+    "coordinate_y",
+    "distance_from_net",
+    "angle",
+    "angle_between_prev_event",
+    "distance_from_prev_event",
+    "prev_event_time_diff",
+    "speed",
+    "is_rebound",
+    "rebound_angle",
+    "is_empty_net",
+    # "prev_event_x_coord",
+    "shot_Backhand",
+    "shot_Tip-In",
+    "shot_Wrist Shot",
+    "prev_event_FACEOFF",
+    "prev_event_GIVEAWAY",
+    "prev_event_HIT",
+    "prev_event_SHOT",
 ]
 
 TRAIN_COLS_PART_4 = [
@@ -49,7 +77,7 @@ TRAIN_COLS_PART_4 = [
     "is_empty_net",
 ]
 
-MODEL_COLS = [
+NON_CORR_COLS = [
     "angle",
     "angle_between_prev_event",
     "distance_from_net",
@@ -75,6 +103,418 @@ MODEL_COLS = [
     "shot_Wrist Shot",
     "speed",
 ]
+
+
+LG_SCALE = {
+    "column": ["distance_from_net", "angle"],
+    "scale": [23.61912323, 36.63724954],
+    "mean": [35.50230422, -0.82357586],
+}
+
+NN_SCALE = {
+    "column": [
+        "game_sec",
+        "period",
+        "coordinate_x",
+        "coordinate_y",
+        "distance_from_net",
+        "angle",
+        "angle_between_prev_event",
+        "distance_from_prev_event",
+        "prev_event_time_diff",
+        "speed",
+        "is_rebound",
+        "rebound_angle",
+        "is_empty_net",
+        "shot_Backhand",
+        "shot_Deflected",
+        "shot_Slap Shot",
+        "shot_Snap Shot",
+        "shot_Tip-In",
+        "shot_Wrap-around",
+        "shot_Wrist Shot",
+        "prev_event_BLOCKED_SHOT",
+        "prev_event_FACEOFF",
+        "prev_event_GIVEAWAY",
+        "prev_event_HIT",
+        "prev_event_MISSED_SHOT",
+        "prev_event_SHOT",
+        "prev_event_STOP",
+        "prev_event_TAKEAWAY",
+    ],
+    "scale": [
+        1.08239235e03,
+        8.78331271e-01,
+        2.36487778e01,
+        1.90165776e01,
+        2.36191232e01,
+        3.66372495e01,
+        2.90617294e01,
+        5.07168419e01,
+        1.47170188e01,
+        2.13382569e01,
+        3.27277378e-01,
+        1.67089835e01,
+        6.77709669e-02,
+        2.74119384e-01,
+        1.22086310e-01,
+        3.69665556e-01,
+        3.54991667e-01,
+        2.18226892e-01,
+        1.01610543e-01,
+        4.99029640e-01,
+        3.12633512e-01,
+        4.30357912e-01,
+        2.91216161e-01,
+        3.83772998e-01,
+        2.92989537e-01,
+        3.93792071e-01,
+        1.31522722e-01,
+        2.50615455e-01,
+    ],
+    "mean": [
+        1.85135280e03,
+        2.05065853e00,
+        5.90438612e01,
+        -8.61830743e-02,
+        3.55023042e01,
+        -8.23575860e-01,
+        3.89527066e01,
+        7.27235426e01,
+        1.49760017e01,
+        1.17236134e01,
+        1.21992701e-01,
+        4.78854534e00,
+        4.61419475e-03,
+        8.18390701e-02,
+        1.51341082e-02,
+        1.63328978e-01,
+        1.47890761e-01,
+        5.01366613e-02,
+        1.04335616e-02,
+        5.31135490e-01,
+        1.09794558e-01,
+        2.45457139e-01,
+        9.35604013e-02,
+        1.79503064e-01,
+        9.48369076e-02,
+        1.91896438e-01,
+        1.76082778e-02,
+        6.73432150e-02,
+    ],
+}
+
+LG_ALL_SCALE = {
+    "column": [
+        "game_sec",
+        "period",
+        "coordinate_x",
+        "coordinate_y",
+        "distance_from_net",
+        "angle",
+        "angle_between_prev_event",
+        "distance_from_prev_event",
+        "prev_event_time_diff",
+        "speed",
+        "is_rebound",
+        "rebound_angle",
+        "is_empty_net",
+        "shot_Backhand",
+        "shot_Deflected",
+        "shot_Slap Shot",
+        "shot_Snap Shot",
+        "shot_Tip-In",
+        "shot_Wrap-around",
+        "shot_Wrist Shot",
+        "prev_event_BLOCKED_SHOT",
+        "prev_event_FACEOFF",
+        "prev_event_GIVEAWAY",
+        "prev_event_HIT",
+        "prev_event_MISSED_SHOT",
+        "prev_event_SHOT",
+        "prev_event_STOP",
+        "prev_event_TAKEAWAY",
+    ],
+    "scale": [
+        1.07902746e03,
+        8.74014465e-01,
+        2.36672088e01,
+        1.90237928e01,
+        2.36322718e01,
+        3.66675962e01,
+        2.90617294e01,
+        5.07168419e01,
+        1.47071075e01,
+        2.14504660e01,
+        3.29407486e-01,
+        1.68250122e01,
+        6.81434298e-02,
+        2.73988261e-01,
+        1.21712867e-01,
+        3.69455476e-01,
+        3.54707655e-01,
+        2.18391779e-01,
+        1.01768704e-01,
+        4.98991774e-01,
+        3.14701013e-01,
+        4.32541305e-01,
+        2.93180794e-01,
+        3.86032687e-01,
+        2.94962800e-01,
+        3.96028122e-01,
+        5.23864429e-02,
+        2.52348740e-01,
+    ],
+    "mean": [
+        1.84858903e03,
+        2.04788404e00,
+        5.90430320e01,
+        -9.37060485e-02,
+        3.55103634e01,
+        -8.28603001e-01,
+        3.89527066e01,
+        7.27235426e01,
+        1.51545264e01,
+        1.19018606e01,
+        1.23847494e-01,
+        4.86135099e00,
+        4.66529198e-03,
+        8.17531435e-02,
+        1.50402305e-02,
+        1.63098455e-01,
+        1.47604655e-01,
+        5.02166845e-02,
+        1.04664149e-02,
+        5.31736563e-01,
+        1.11460076e-01,
+        2.49185289e-01,
+        9.49752823e-02,
+        1.82228439e-01,
+        9.62711968e-02,
+        1.94775940e-01,
+        2.75191243e-03,
+        6.83518636e-02,
+    ],
+}
+
+LG_SCALE_df = pd.DataFrame.from_dict(
+    LG_SCALE, orient="index", columns=LG_SCALE["column"]
+).drop(index="column")
+NN_SCALE_df = pd.DataFrame.from_dict(
+    NN_SCALE, orient="index", columns=NN_SCALE["column"]
+).drop(index="column")
+LG_ALL_df = pd.DataFrame.from_dict(
+    LG_ALL_SCALE, orient="index", columns=LG_ALL_SCALE["column"]
+).drop(index="column")
+
+
+def preprocess_for_model(data, model_type):
+    """Preprocess the input data according to the model type"""
+
+    if model_type == "logreg_dist":
+        data_processed = LG_preprocess(data, dist=True)
+
+    if model_type == "logreg_ang":
+        data_processed = LG_preprocess(data, ang=True)
+
+    if model_type == "logreg_dist_ang":
+        data_processed = LG_preprocess(data)
+
+    if model_type == "logreg_all":
+        data_processed = preprocess_lr_all(data)
+
+    if model_type == "logreg_SMOTE" or Model_Type == "logreg_non_corr_feats":
+        data_processed = preprocess_lr_smote(data)
+
+    if model_type == "xgboost_SHAP":
+        data_processed = XGB_SHAP_preprocess(data)
+
+    if model_type == "xgboost_lasso":
+        data_processed = XGB_Lasso_preprocess(data)
+
+    if (
+        model_type == "xgboost_non_corr"
+        or Model_Type == "logreg_SMOTE"
+        or Model_Type == "xgboost_SMOTE"
+    ):
+        data_processed = XGB_Non_Corr_preprocess(data)
+
+    if model_type == "NN_MLP":
+        data_processed = NN_preprocess(data)
+
+    return data_processed
+
+
+def LG_preprocess(data, dist=False, ang=False):
+
+    na_mask = data.isnull().any(axis=1)
+    data = data[~na_mask]
+
+    if dist:
+        data_processed = (data - LG_SCALE_df["distance_from_net"][1]) / LG_SCALE_df[
+            "distance_from_net"
+        ][0]
+    elif ang:
+        data_processed = (data - LG_SCALE_df["angle"][1]) / LG_SCALE_df["angle"][0]
+    else:
+        data_processed = (data - LG_SCALE_df[data.columns].iloc[1]) / LG_SCALE_df[
+            data.columns
+        ].iloc[0]
+
+    return data_processed
+
+
+# Logistic Regression
+def preprocess_lr_all(data):
+
+    data = data[TRAIN_COLS_PART_4]
+
+    na_mask = data.isnull().any(axis=1)
+    data = data[~na_mask]
+
+    data["secondary_type"].replace({"Tip-in": "Deflection"}, inplace=True)
+
+    data["prev_event_type"].replace(
+        to_replace=INFREQUENT_STOPPAGE_EVENTS, value="STOP", inplace=True
+    )
+
+    data = pd.get_dummies(data, ["shot", "prev_event"])
+
+    for col in LG_ALL_SCALE.columns:
+        if col not in data:
+            data[col] = 0
+
+    data = data[LG_ALL_SCALE.columns]
+    data_processed = (data - LG_ALL_df[data.columns].iloc[1]) / LG_ALL_df[
+        data.columns
+    ].iloc[0]
+
+    return data_processed
+
+
+# Logistic Regression
+def preprocess_lr_smote(data):
+
+    data = data[TRAIN_COLS_PART_4]
+
+    data["secondary_type"].replace({"Tip-in": "Deflection"}, inplace=True)
+    data["prev_event_type"].replace(
+        to_replace=INFREQUENT_STOPPAGE_EVENTS, value="STOP", inplace=True
+    )
+    data = pd.get_dummies(data, ["shot", "prev_event"])
+
+    na_mask = data.isnull().any(axis=1)
+    data = data[~na_mask]
+
+    for col in LG_ALL_SCALE.columns:
+        if col not in data:
+            data[col] = 0
+
+    data = data[LG_ALL_SCALE.columns]
+    data_processed = (data - LG_ALL_df[data.columns].iloc[1]) / LG_ALL_df[
+        data.columns
+    ].iloc[0]
+
+    # the redundant features after inspecting them in "./notebooks/M2_detect-feat-correlation.ipynb"
+    redundant_feats = ["is_rebound", "coordinate_y", "coordinate_x", "period"]
+
+    # Training and validation data of the selected features
+    selected_feats = data_processed.columns.difference(redundant_feats)
+    data_processed = data_processed[selected_feats]
+
+    data_processed = data_processed.fillna(0)
+
+    return data_processed
+
+
+# XGBoost with SHAP
+def XGB_SHAP_preprocess(data):
+
+    data = data[TRAIN_COLS_PART_4]
+
+    data["secondary_type"].replace({"Tip-in": "Deflection"}, inplace=True)
+    data["prev_event_type"].replace(
+        to_replace=INFREQUENT_STOPPAGE_EVENTS, value="STOP", inplace=True
+    )
+
+    data = pd.get_dummies(X_data, ["shot", "prev_event"])
+
+    for col in LG_ALL_SCALE.columns:
+        if col not in data:
+            data[col] = 0
+
+    data = data[SHAP_COLS]
+
+    return data_processed
+
+
+# XGBoost with Lasso
+def XGB_Lasso_preprocess(data):
+
+    data = data[TRAIN_COLS_PART_4]
+
+    data["secondary_type"].replace({"Tip-in": "Deflection"}, inplace=True)
+    data["prev_event_type"].replace(
+        to_replace=INFREQUENT_STOPPAGE_EVENTS, value="STOP", inplace=True
+    )
+
+    data = pd.get_dummies(data, ["shot", "prev_event"])
+
+    for col in LG_ALL_SCALE.columns:
+        if col not in data:
+            data[col] = 0
+
+    data_processed = data[LASSO_COLS]
+
+    return data_processed
+
+
+def XGB_Non_Corr_preprocess(data):
+
+    data = data[TRAIN_COLS_PART_4]
+
+    data["secondary_type"].replace({"Tip-in": "Deflection"}, inplace=True)
+    data["prev_event_type"].replace(
+        to_replace=INFREQUENT_STOPPAGE_EVENTS, value="STOP", inplace=True
+    )
+
+    data = pd.get_dummies(data, ["shot", "prev_event"])
+
+    #    the redundant features after inspecting them in "./notebooks/M2_detect-feat-correlation.ipynb"
+    redundant_feats = ["is_rebound", "coordinate_y", "coordinate_x", "period"]
+
+    # Training and validation data of the selected features
+    selected_feats = X_data.columns.difference(redundant_feats)
+    X_data = X_data[selected_feats]
+    X_data = X_data.dropna(axis=0)
+
+    for col in NON_CORR_COLS:
+        if col not in X_data:
+            X_data[col] = 0
+    data_processed = X_data[NON_CORR_COLS]
+
+    return data_processed
+
+
+# Neural Network with Advance
+def NN_preprocess(data):
+
+    data = data[TRAIN_COLS_PART_4]
+
+    data["secondary_type"].replace({"Tip-in": "Deflection"}, inplace=True)
+    data["prev_event_type"].replace(
+        to_replace=INFREQUENT_STOPPAGE_EVENTS, value="STOP", inplace=True
+    )
+
+    data = pd.get_dummies(data, ["shot", "prev_event"])
+
+    data_processed = (data - NN_SCALE_df[data.columns].iloc[1]) / NN_SCALE_df[
+        data.columns
+    ].iloc[0]
+
+    data_processed = data_processed.fillna(0)
+
+    return data_processed
 
 
 def flip_coord_to_one_side(game_events_df, right_team, left_team):
@@ -167,230 +607,6 @@ def add_milestone2_advanced_metrics(events_df):
         | (events_df["period"] != prev_events_df["period"]),
         "speed",
     ] = 0.0
-
-    # 8. Time since the power-play started
-    # Flags are temporary storage variables
-    Home_power_startstamp = 0
-    Guest_power_startstamp = 0
-
-    Guest_minor_exp_end = np.empty(0)
-    Guest_DM_exp_end = np.empty(0)
-    Guest_major_exp_end = np.empty(0)
-
-    Home_minor_exp_end = np.empty(0)
-    Home_DM_exp_end = np.empty(0)
-    Home_major_exp_end = np.empty(0)
-
-    HomeTeamPowerPlayFlag = 0
-    GuestTeamPowerPlayFlag = 0
-
-    Home_Skaters = 0
-    Guest_Skaters = 0
-    PowerPlayTimerHome = 0
-    PowerPlayTimerGuest = 0
-
-    PreEvent_Home_Skaters = 0
-    PreEvent_Guest_Skaters = 0
-    PreEvent_PowerPlayTimerHome = 0
-    PreEvent_PowerPlayTimerGuest = 0
-
-    # Loop through all rows, not efficient, better method investigating
-    for i in range(events_df.shape[0]):
-
-        # Always update penalty timer, remove expired ones
-        Home_minor_exp_end = Home_minor_exp_end[
-            Home_minor_exp_end > events_df.at[i, "game_sec"]
-        ]
-        Home_DM_exp_end = Home_DM_exp_end[Home_DM_exp_end > events_df.at[i, "game_sec"]]
-        Home_major_exp_end = Home_major_exp_end[
-            Home_major_exp_end > events_df.at[i, "game_sec"]
-        ]
-
-        Guest_minor_exp_end = Guest_minor_exp_end[
-            Guest_minor_exp_end > events_df.at[i, "game_sec"]
-        ]
-        Guest_DM_exp_end = Guest_DM_exp_end[
-            Guest_DM_exp_end > events_df.at[i, "game_sec"]
-        ]
-        Guest_major_exp_end = Guest_major_exp_end[
-            Guest_major_exp_end > events_df.at[i, "game_sec"]
-        ]
-
-        # Number of friendly non-goalie skaters right before the event
-        if (
-            Home_minor_exp_end.size + Home_DM_exp_end.size + Home_major_exp_end.size
-        ) > 2:
-            PreEvent_Home_Skaters = 3
-        else:
-            PreEvent_Home_Skaters = 5 - (
-                Home_minor_exp_end.size + Home_DM_exp_end.size + Home_major_exp_end.size
-            )
-
-        # 10. Number of opposing non-goalie skaters
-        if (
-            Guest_minor_exp_end.size + Guest_DM_exp_end.size + Guest_major_exp_end.size
-        ) > 2:
-            PreEvent_Guest_Skaters = 3
-        else:
-            PreEvent_Guest_Skaters = 5 - (
-                Guest_minor_exp_end.size
-                + Guest_DM_exp_end.size
-                + Guest_major_exp_end.size
-            )
-
-        # Powerplay timer before the event for home team
-        if PreEvent_Home_Skaters <= PreEvent_Guest_Skaters:
-            Home_power_startstamp = events_df.at[i, "game_sec"]
-            HomeTeamPowerPlayFlag = 0
-
-        # Powerplay timer before the event for guest team
-        if PreEvent_Guest_Skaters <= PreEvent_Home_Skaters:
-            Guest_power_startstamp = events_df.at[i, "game_sec"]
-            GuestTeamPowerPlayFlag = 0
-
-        PreEvent_PowerPlayTimerHome = (
-            events_df.at[i, "game_sec"] - Home_power_startstamp
-        )
-        PreEvent_PowerPlayTimerGuest = (
-            events_df.at[i, "game_sec"] - Guest_power_startstamp
-        )
-
-        if events_df.at[i, "shooter_team_name"] == events_df.at[i, "home_team"]:
-            events_df.at[i, "friendly_skaters"] = PreEvent_Home_Skaters
-            events_df.at[i, "opposing_skaters"] = PreEvent_Guest_Skaters
-            if PreEvent_Home_Skaters > PreEvent_Guest_Skaters:
-                events_df.at[i, "power_play_time_elapsed"] = PreEvent_PowerPlayTimerHome
-        elif events_df.at[i, "shooter_team_name"] == events_df.at[i, "away_team"]:
-            events_df.at[i, "friendly_skaters"] = PreEvent_Guest_Skaters
-            events_df.at[i, "opposing_skaters"] = PreEvent_Home_Skaters
-            if PreEvent_Guest_Skaters > PreEvent_Home_Skaters:
-                events_df.at[
-                    i, "power_play_time_elapsed"
-                ] = PreEvent_PowerPlayTimerGuest
-        else:
-            events_df.at[i, "friendly_skaters"] = np.nan
-            events_df.at[i, "opposing_skaters"] = np.nan
-            events_df.at[i, "power_play_time_elapsed"] = np.nan
-
-        # Guest team got a penalty, home team powerplay
-        if (events_df.at[i, "type"] == "PENALTY") and (
-            events_df.at[i, "shooter_team_name"] == events_df.at[i, "away_team"]
-        ):
-
-            # Penalty is a doulbe minor penalty
-            if events_df.at[i, "penaltyMinutes"] == 4:
-                # Expected ending time of the double minor penalty
-                Guest_DM_exp_end = np.append(
-                    Guest_DM_exp_end, (events_df.at[i, "game_sec"] + (60 * 4))
-                )
-
-            # Penalty is a major penalty
-            elif events_df.at[i, "penaltyMinutes"] == 5:
-                # Expected ending time of the major penalty
-                Guest_major_exp_end = np.append(
-                    Guest_major_exp_end, (events_df.at[i, "game_sec"] + (60 * 5))
-                )
-
-            # Penalty is a minor penalty
-            elif events_df.at[i, "penaltyMinutes"] == 2:
-                # Expected ending time of the minor penalty
-                Guest_minor_exp_end = np.append(
-                    Guest_minor_exp_end, (events_df.at[i, "game_sec"] + (60 * 2))
-                )
-
-        # Home team got a penalty, guest team powerplay
-        elif (events_df.at[i, "type"] == "PENALTY") and (
-            events_df.at[i, "shooter_team_name"] == events_df.at[i, "home_team"]
-        ):
-
-            # Penalty is a doulbe minor penalty
-            if events_df.at[i, "penaltyMinutes"] == 4:
-                # Expected ending time of the double minor penalty
-                Home_DM_exp_end = np.append(
-                    Home_DM_exp_end, (events_df.at[i, "game_sec"] + (60 * 4))
-                )
-
-            # Penalty is a major penalty
-            elif events_df.at[i, "penaltyMinutes"] == 5:
-                # Expected ending time of the major penalty
-                Home_major_exp_end = np.append(
-                    Home_major_exp_end, (events_df.at[i, "game_sec"] + (60 * 5))
-                )
-
-            # Penalty is a minor penalty
-            elif events_df.at[i, "penaltyMinutes"] == 2:
-                # Expected ending time of the minor penalty
-                Home_minor_exp_end = np.append(
-                    Home_minor_exp_end, (events_df.at[i, "game_sec"] + (60 * 2))
-                )
-
-        # Goal occured, if guest team scored, clear home team penalty
-        elif (events_df.at[i, "type"] == "GOAL") and (
-            events_df.at[i, "shooter_team_name"] == events_df.at[i, "away_team"]
-        ):
-
-            # Detele the first minor penalty timer
-            if Home_minor_exp_end.size != 0:
-                Home_minor_exp_end = np.delete(Home_minor_exp_end, 0)
-
-            # Reset the double minor penalty timer, remove 1 minor penalty and start the next one
-            Home_DM_exp_end = Home_DM_exp_end[Home_DM_exp_end > (2 * 60)]
-            if Home_DM_exp_end.size != 0:
-                Home_DM_exp_end[:] = (2 * 60) + events_df.at[i, "game_sec"]
-
-        # Goal occured, if home team scored, clear guest team penalty
-        elif (events_df.at[i, "type"] == "GOAL") and (
-            events_df.at[i, "shooter_team_name"] == events_df.at[i, "home_team"]
-        ):
-
-            # Detele the first minor penalty timer
-            if Guest_minor_exp_end.size != 0:
-                Guest_minor_exp_end = np.delete(Guest_minor_exp_end, 0)
-
-            # Reset the double minor penalty timer, remove 1 minor penalty and start the next one
-            Guest_DM_exp_end = Guest_DM_exp_end[Guest_DM_exp_end > (2 * 60)]
-            if Guest_DM_exp_end.size != 0:
-                Guest_DM_exp_end[:] = (2 * 60) + events_df.at[i, "game_sec"]
-
-        # Update skater number
-        # 9. Number of friendly non-goalie skaters
-        if (
-            Home_minor_exp_end.size + Home_DM_exp_end.size + Home_major_exp_end.size
-        ) > 2:
-            Home_Skaters = 3
-        else:
-            Home_Skaters = 5 - (
-                Home_minor_exp_end.size + Home_DM_exp_end.size + Home_major_exp_end.size
-            )
-
-        # 10. Number of opposing non-goalie skaters
-        if (
-            Guest_minor_exp_end.size + Guest_DM_exp_end.size + Guest_major_exp_end.size
-        ) > 2:
-            Guest_Skaters = 3
-        else:
-            Guest_Skaters = 5 - (
-                Guest_minor_exp_end.size
-                + Guest_DM_exp_end.size
-                + Guest_major_exp_end.size
-            )
-
-        # Update the power play timer
-        # If the guest team has a player advantage, start the power play
-        if (Home_Skaters > Guest_Skaters) and (HomeTeamPowerPlayFlag == 0):
-            Home_power_startstamp = events_df.at[i, "game_sec"]
-            HomeTeamPowerPlayFlag = 1
-        elif Home_Skaters <= Guest_Skaters:
-            Home_power_startstamp = events_df.at[i, "game_sec"]
-            HomeTeamPowerPlayFlag = 0
-
-        # If the home team has a player advantage, start the power play
-        if (Guest_Skaters > Home_Skaters) and (GuestTeamPowerPlayFlag == 0):
-            Guest_power_startstamp = events_df.at[i, "game_sec"]
-            GuestTeamPowerPlayFlag = 1
-        elif Guest_Skaters <= Home_Skaters:
-            Guest_power_startstamp = events_df.at[i, "game_sec"]
-            GuestTeamPowerPlayFlag = 0
 
     return events_df
 
@@ -541,8 +757,6 @@ def parse_game_data(game_id: str, game_data: dict):
             "strength_code": strength_code,
             "coordinate_x": coord_x,
             "coordinate_y": coord_y,
-            # Adding penalty related information
-            "penaltyMinutes": penaltyMinutes,
         }
         events.append(event_entry)
 
@@ -576,42 +790,11 @@ def parse_game_data(game_id: str, game_data: dict):
     return events_df
 
 
-def model_preprocess(data):
-    """
-    Processing data for the model
-    """
-
-    X_data = data[TRAIN_COLS_PART_4]
-
-    X_data["secondary_type"].replace({"Tip-in": "Deflection"}, inplace=True)
-    X_data["prev_event_type"].replace(
-        to_replace=INFREQUENT_STOPPAGE_EVENTS, value="STOP", inplace=True
-    )
-
-    X_data = pd.get_dummies(X_data, ["shot", "prev_event"])
-
-    #    the redundant features after inspecting them in "./notebooks/M2_detect-feat-correlation.ipynb"
-    redundant_feats = ["is_rebound", "coordinate_y", "coordinate_x", "period"]
-
-    # Training and validation data of the selected features
-    selected_feats = X_data.columns.difference(redundant_feats)
-    X_data_sf = X_data[selected_feats]
-    X_data_sf = X_data_sf.dropna(axis=0)
-
-    for col in MODEL_COLS:
-        if col not in X_data_sf:
-            X_data_sf[col] = 0
-
-    test_data = X_data_sf[MODEL_COLS]
-
-    return test_data
-
-
-def process_data(data, game_id: int = 2021020329, data_dir: str = "./data/"):
-    print(type(data))
+def process_data(
+    data,
+    game_id: int = 2021020329,
+    model_type="xgboost_non_corr",
+    data_dir: str = "./data",
+):
     game_cleaned = parse_game_data(game_id, game_data=data)
-
-    test_data = model_preprocess(game_cleaned)
-    test_data.to_csv(os.path.join(data_dir, f"{game_id}.csv"))
-
-    return test_data
+    return game_cleaned
