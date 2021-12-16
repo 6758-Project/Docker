@@ -19,16 +19,12 @@ logger = logging.getLogger(__name__)
 curr_comet_model_name = None
 
 
-class ServingClient:
-    def __init__(self, ip: str = "0.0.0.0", port: int = 5000, features=None):
+class PredictorAPIClient:
+    def __init__(self, ip: str = "0.0.0.0", port: int = 5000):
         self.base_url = f"http://{ip}:{port}"
         logger.info(f"Initializing client; base URL: {self.base_url}")
 
-        if features is None:
-            features = ["distance"]
-        self.features = features
 
-        # any other potential initialization
 
     def predict(self, x_data: pd.DataFrame) -> pd.DataFrame:
         """
@@ -40,6 +36,7 @@ class ServingClient:
             X (Dataframe): Input dataframe to submit to the prediction service.
         """
         # preprocess according to the chosen model
+        # TODO remove globals (replace w/ class vars) // may not be necessary if functionality moves
         global curr_comet_model_name
 
         if curr_comet_model_name == "xgboost-shap":
@@ -74,8 +71,8 @@ class ServingClient:
         pretty_logs = json.dumps(logs_response.json(), indent=4, sort_keys=True)
         return pretty_logs
 
-    def download_registry_model(
-        self, workspace: str, comet_model_name: str, version: str
+    def update_model(
+        self, comet_model_name: str = "xgboost-feats-non-corr", workspace: str = "tim-k-lee", version: str = "1.0.1"
     ) -> dict:
         """
         Triggers a "model swap" in the service; the workspace, model, and model version are
@@ -93,6 +90,7 @@ class ServingClient:
         """
         response = None
 
+        # TODO remove globals (replace w/ class vars) // may not be necessary if functionality moves
         global curr_comet_model_name
 
         # check if the model exist in Comet.ml
@@ -117,21 +115,23 @@ class ServingClient:
 
 if __name__ == "__main__":
 
-    app_client = ServingClient()
+    app_client = PredictorAPIClient()
 
-    # getting the logs
-    logs_dct = app_client.get_logs()
-    logging.info(f"retrieved logs: {logs_dct}")
-
-    # downloading model from Comet.ml
-    download_res_msg = app_client.download_registry_model(
-        workspace="tim-k-lee",
-        comet_model_name="xgboost-feats-non-corr",
-        version="1.0.1",
-    )
-    logging.info(f"API response for download_registry_model: {download_res_msg}")
+    download_res_msg = app_client.update_model()
+    logging.info(f"API response for update_model: {download_res_msg}")
 
     # predict test data from milestone 2
     x_test = pd.read_csv("../data/test_processed.csv")
     y_preds = app_client.predict(x_test)
     logging.info(f"predicting {len(y_preds)} events")
+
+    app_client.update_model("nn-adv")
+
+    # predict test data from milestone 2
+    x_test = pd.read_csv("../data/test_processed.csv")
+    y_preds = app_client.predict(x_test)
+    logging.info(f"predicting {len(y_preds)} events")
+
+    # getting the logs
+    logs_dct = app_client.get_logs()
+    logging.info(f"retrieved logs: {logs_dct}")

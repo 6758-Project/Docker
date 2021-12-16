@@ -1,6 +1,6 @@
 """
 If you are in the same directory as this file (app.py), you can run run the app using gunicorn:
-    
+
     $ gunicorn --bind 0.0.0.0:<PORT> app:app
 
 gunicorn can be installed via:
@@ -8,18 +8,23 @@ gunicorn can be installed via:
     $ pip install gunicorn
 
 """
-import os
-import logging
-import pickle
 import json
+import logging
+import os
+import pickle
+import re
+from time import gmtime, strftime
+
 from flask import Flask, jsonify, request
 from comet_ml import API
+
 import pandas as pd
 import numpy as np
 
 import ift6758
 
-LOG_FILE_PATH = os.environ.get("FLASK_LOG", "flask.log")
+default_flask_file = re.sub("[^0-9a-zA-Z]+", "_", strftime("%Y-%m-%d-%H-%M-%S", gmtime()))
+LOG_FILE_PATH = os.environ.get("FLASK_LOG", f"flask_{default_flask_file}.log")
 
 LABEL_COL = "is_goal"
 
@@ -35,7 +40,6 @@ DEFAULT_MODEL_INFO = {
     "file_name": "xgboost_feats_non_corr",
 }
 
-
 comet_model = None
 
 app = Flask(__name__)
@@ -48,17 +52,10 @@ def load_model(model_info_dct):
 
     model_path = os.path.join(MODEL_DIR, model_info_dct["file_name"] + ".pickle")
 
-    # load  model if found locally
     if os.path.isfile(model_path):
-        app.logger.info(
-            f"[{model_info_dct['file_name']}] model was found in {model_path}"
-        )
+        app.logger.info(f"found {model_info_dct['file_name']} model in {model_path}")
 
-        with open(model_path, "rb") as model_pickle_file:
-            comet_model = pickle.load(model_pickle_file)
-        app.logger.info(f"{model_info_dct['file_name']} model loaded successfully ...")
-
-    else:  # download and load the model
+    else:
         comet_api = API()
         comet_api.download_registry_model(
             model_info_dct["workspace"],
@@ -67,12 +64,11 @@ def load_model(model_info_dct):
             output_path=MODEL_DIR,
             expand=True,
         )
+        app.logger.info(f"downloaded [{model_info_dct['file_name']}]")
 
-        with open(model_path, "rb") as model_pickle_file:
-            comet_model = pickle.load(model_pickle_file)
-        app.logger.info(
-            f"{model_info_dct['file_name']} model was downloaded and loaded successfully ..."
-        )
+    with open(model_path, "rb") as model_pickle_file:
+       comet_model = pickle.load(model_pickle_file)
+       app.logger.info(f"loaded {model_info_dct['file_name']} model")
 
 
 @app.before_first_request
@@ -90,7 +86,11 @@ def before_first_request():
         filename=LOG_FILE_PATH, format=logging_format, level=logging.INFO
     )
 
-    # load default model
+    with open(LOG_FILE_PATH, "w") as log_file:
+        log_file.write("")
+
+    app.logger.info(f"prediction API is now running")
+
     load_model(DEFAULT_MODEL_INFO)
 
 
@@ -107,7 +107,7 @@ def logs():
 
     # read the log file specified and return the data
     logs_lines = {}
-    with open("flask.log", "r") as log_file:
+    with open(LOG_FILE_PATH, "r") as log_file:
         lines = log_file.read().splitlines()
         for idx, line in enumerate(lines):
             logs_lines[f"log_line#{idx}"] = line.strip()
@@ -157,27 +157,21 @@ def predict():
 
     Returns predictions
     """
-    # Get POST json data
-    json_req = request.get_json()
-
-    # predict the datapoint (first row if a dataframe has rows > 1)
-    data_dct = json.loads(json_req)
-    data_df = pd.DataFrame(data_dct)
+    requested_preds = request.get_json()
+    requested_preds = pd.DataFrame(json.loads(requested_preds))
 
     global comet_model
 
     # remove the label column if it exists
-    data_df = data_df[data_df.columns.difference([LABEL_COL])]
+    requested_preds = requested_preds[requested_preds.columns.difference([LABEL_COL])]
 
-    app.logger.info(f"Predicting: {len(data_df)} events")
+    app.logger.info(f"Predicting: {len(requested_preds)} events")
 
-    # get the predictions
     try:
-        y_pred = comet_model.predict(data_df)
-        pred_df = pd.DataFrame(y_pred, columns=["predictions"])
+        y_proba = comet_model.predict_proba(requested_preds)[:, 1]
+        pred_df = pd.DataFrame(y_proba, columns=["predictions"])
         response = pred_df.to_json()
         app.logger.info("Predictions retrieved successfully ... ")
-        app.logger.info(f"predicting {np.sum(y_pred)} goals out of {len(y_pred)}")
 
     except:
         app.logger.exception(f"model failed to predict the {len(data_df)} events")
