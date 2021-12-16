@@ -2,7 +2,12 @@ import json
 import requests
 import pandas as pd
 import logging
-
+from utils import AVAILABLE_MODELS
+from data_preprocessing import (
+    preprocess_xgboost_shap,
+    preprocess_xgboost_lasso,
+    preprocess_xgboost_non_corr_feats,
+)
 
 # setup basic logging configuration
 logging_format = "[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s"
@@ -10,6 +15,8 @@ logging_format = "[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(mess
 logging.basicConfig(format=logging_format, level=logging.INFO)
 
 logger = logging.getLogger(__name__)
+
+curr_comet_model_name = None
 
 
 class ServingClient:
@@ -23,8 +30,7 @@ class ServingClient:
 
         # any other potential initialization
 
-
-    def predict(self, X_data: pd.DataFrame) -> pd.DataFrame:
+    def predict(self, x_data: pd.DataFrame) -> pd.DataFrame:
         """
         Formats the inputs into an appropriate payload for a POST request, and queries the
         prediction service. Retrieves the response from the server, and processes it back into a
@@ -33,15 +39,34 @@ class ServingClient:
         Args:
             X (Dataframe): Input dataframe to submit to the prediction service.
         """
-        X_data_json = X_data.to_json()
-        pred_response = requests.post(self.base_url + "/predict", json=X_data_json)
+        # preprocess according to the chosen model
+        global curr_comet_model_name
+
+        if curr_comet_model_name == "xgboost-shap":
+            x_processed = preprocess_xgboost_shap(x_data)
+
+        elif curr_comet_model_name == "xgboost-lasso":
+            x_processed = preprocess_xgboost_lasso(x_data)
+
+        elif (
+            curr_comet_model_name == "xgboost-feats-non-corr"
+            or curr_comet_model_name == "xgboost-SMOTE"
+        ):
+            x_processed = preprocess_xgboost_non_corr_feats(x_data)
+        else:
+            logging.exception(f"[TODO] LR models need normalization from training data")
+
+        # convert to json and get prediction from the endpoint
+        x_data_json = x_processed.to_json()
+        pred_response = requests.post(self.base_url + "/predict", json=x_data_json)
         pred_response_json = pred_response.json()
 
-        pred_dct = json.loads(pred_response_json)["predictions"]        
-        pred_df = pd.DataFrame(pred_dct.values(), columns=['predictions'], index=X_data.index)
+        pred_dct = json.loads(pred_response_json)["predictions"]
+        pred_df = pd.DataFrame(
+            pred_dct.values(), columns=["predictions"], index=x_processed.index
+        )
 
         return pred_df
-
 
     def get_logs(self) -> dict:
         """Get server logs"""
@@ -49,9 +74,8 @@ class ServingClient:
         pretty_logs = json.dumps(logs_response.json(), indent=4, sort_keys=True)
         return pretty_logs
 
-
     def download_registry_model(
-        self, workspace: str, model_name: str, version: str
+        self, workspace: str, comet_model_name: str, version: str
     ) -> dict:
         """
         Triggers a "model swap" in the service; the workspace, model, and model version are
@@ -67,29 +91,28 @@ class ServingClient:
             model (str): The model in the Comet ML registry to download
             version (str): The model version to download
         """
+        response = None
 
-        # "xgboost-feats-non-corr" is out best performer in from milestone 2
-        if model_name != "xgboost-feats-non-corr":
-            logging.warning(
-                "Predict function might not work properly with the chosen model \
-                the expected model name is 'xgboost-feats-non-corr'"
+        global curr_comet_model_name
+
+        # check if the model exist in Comet.ml
+        if comet_model_name not in AVAILABLE_MODELS.keys():
+            logging.exception(
+                f"{comet_model_name} doesn't exist. Available models are: {AVAILABLE_MODELS.keys()}"
             )
 
-        COMET_MODEL_INFO = {
-            "project_name": "ift6758-hockey",
-            "workspace": workspace,
-            "model_type": "xgboost_non_corr",
-            "model_desc": "XGBoost with Non Correlated Features",
-            "model_name": model_name,
-            "version": version,
-            "file_name": "xgboost_feats_non_corr",
-        }
+        else:
+            comet_model_info = AVAILABLE_MODELS[comet_model_name]
+            comet_model_info["version"] = version
+            comet_model_info["workspace"] = workspace
 
-        COMET_MODEL_INFO = json.dumps(COMET_MODEL_INFO)
-        download_response = requests.post(
-            self.base_url + "/download_registry_model", json=COMET_MODEL_INFO
-        )
-        return download_response.json()
+            comet_model_info_json = json.dumps(comet_model_info)
+            response = requests.post(
+                self.base_url + "/download_registry_model", json=comet_model_info_json
+            )
+            # save the current comet model name for pre-processing in the predict function
+            curr_comet_model_name = comet_model_name
+        return response.json()
 
 
 if __name__ == "__main__":
@@ -100,15 +123,15 @@ if __name__ == "__main__":
     logs_dct = app_client.get_logs()
     logging.info(f"retrieved logs: {logs_dct}")
 
-    # downloading model from comet
+    # downloading model from Comet.ml
     download_res_msg = app_client.download_registry_model(
-        workspace="tim-k-lee", model_name="xgboost-feats-non-corr", version="1.0.1"
+        workspace="tim-k-lee",
+        comet_model_name="xgboost-feats-non-corr",
+        version="1.0.1",
     )
-    logging.info(
-            f"API response for download_registry_model: {download_res_msg}"
-        )
+    logging.info(f"API response for download_registry_model: {download_res_msg}")
 
-    # predict test data from milestone 2 (preprocessed for the best performer xgboost model)
-    X_test = pd.read_csv("../data/offline_test_data.csv")
-    y_preds = app_client.predict(X_test) 
+    # predict test data from milestone 2
+    x_test = pd.read_csv("../data/test_processed.csv")
+    y_preds = app_client.predict(x_test)
     logging.info(f"predicting {len(y_preds)} events")

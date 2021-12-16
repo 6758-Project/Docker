@@ -15,21 +15,64 @@ import json
 from flask import Flask, jsonify, request
 from comet_ml import API
 import pandas as pd
+import numpy as np
 
 import ift6758
 
-LOG_FILE = os.environ.get("FLASK_LOG", "flask.log")
+LOG_FILE_PATH = os.environ.get("FLASK_LOG", "flask.log")
 
 LABEL_COL = "is_goal"
 
 MODEL_DIR = "./models"
-MODEL_NAME = "xgboost_feats_non_corr.pickle"
-MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
 
-global comet_model
+DEFAULT_MODEL_INFO = {
+    "project_name": "ift6758-hockey",
+    "workspace": "tim-k-lee",
+    "model_type": "xgboost_non_corr",
+    "model_desc": "XGBoost with Non Correlated Features",
+    "comet_model_name": "xgboost-feats-non-corr",
+    "version": "1.0.1",
+    "file_name": "xgboost_feats_non_corr",
+}
 
+
+comet_model = None
 
 app = Flask(__name__)
+
+
+def load_model(model_info_dct):
+    """loads a model from Comet API"""
+
+    global comet_model
+
+    model_path = os.path.join(MODEL_DIR, model_info_dct["file_name"] + ".pickle")
+
+    # load  model if found locally
+    if os.path.isfile(model_path):
+        app.logger.info(
+            f"[{model_info_dct['file_name']}] model was found in {model_path}"
+        )
+
+        with open(model_path, "rb") as model_pickle_file:
+            comet_model = pickle.load(model_pickle_file)
+        app.logger.info(f"{model_info_dct['file_name']} model loaded successfully ...")
+
+    else:  # download and load the model
+        comet_api = API()
+        comet_api.download_registry_model(
+            model_info_dct["workspace"],
+            model_info_dct["comet_model_name"],
+            model_info_dct["version"],
+            output_path=MODEL_DIR,
+            expand=True,
+        )
+
+        with open(model_path, "rb") as model_pickle_file:
+            comet_model = pickle.load(model_pickle_file)
+        app.logger.info(
+            f"{model_info_dct['file_name']} model was downloaded and loaded successfully ..."
+        )
 
 
 @app.before_first_request
@@ -43,17 +86,12 @@ def before_first_request():
     logging_format = (
         "[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s"
     )
-    logging.basicConfig(filename=LOG_FILE, format=logging_format, level=logging.INFO)
+    logging.basicConfig(
+        filename=LOG_FILE_PATH, format=logging_format, level=logging.INFO
+    )
 
-    # any other initialization before the first request (e.g. load default model)
-    try:
-        with open(MODEL_PATH, "rb") as model_pickle_file:
-            comet_model = pickle.load(model_pickle_file)
-        app.logger.info("default model was found and loaded successfully ...")
-    except:
-        app.logger.exception(f"default model failed to load from: {MODEL_PATH}")
-
-    pass
+    # load default model
+    load_model(DEFAULT_MODEL_INFO)
 
 
 @app.route("/", methods=["GET"])
@@ -67,22 +105,10 @@ def home():
 def logs():
     """Reads data from the log file and returns them as the response"""
 
-    # # read the log file specified and return the data
-
-    # html friendly format
-    # logs_lines = "<h3>"
-    # with open("flask.log", "r") as f:
-    #     lines = f.read().splitlines()
-    #     for line in lines:
-    #         logs_lines += line.strip()
-    #         logs_lines += "<br>"
-    # logs_lines += "</h3>"
-    # response = logs_lines
-
-    # json friendly format
+    # read the log file specified and return the data
     logs_lines = {}
-    with open("flask.log", "r") as f:
-        lines = f.read().splitlines()
+    with open("flask.log", "r") as log_file:
+        lines = log_file.read().splitlines()
         for idx, line in enumerate(lines):
             logs_lines[f"log_line#{idx}"] = line.strip()
     response = json.dumps(logs_lines)
@@ -110,59 +136,14 @@ def download_registry_model():
     # Get POST json data (the data point to predict)
     json_req = request.get_json()
     app.logger.info(f"Model information: {json_req}")
-    COMET_MODEL_INFO = json.loads(json_req)
-    output_msg = None
-
-    # check to see if the model you are querying for is already downloaded
-    # if yes, load that model and write to the log about the model change.
-    # eg: app.logger.info(<LOG STRING>)
-    if os.path.isfile(MODEL_PATH):
-        app.logger.info(f"model already downloaded in {MODEL_PATH}")
-
-        try:
-            with open(MODEL_PATH, "rb") as model_pickle_file:
-                comet_model = pickle.load(model_pickle_file)
-            app.logger.info("model loaded successfully ...")
-            output_msg = "Model loaded successfully - for more information check \\logs"
-        except:
-            output_msg = "Model failed to load - for more information check \\logs"
-            app.logger.exception(f"model failed to load from {MODEL_PATH}")
-
-    # if no, try downloading the model: if it succeeds, load that model and write to the log
-    # about the model change. If it fails, write to the log about the failure and keep the
-    # currently loaded model
+    comet_model_info = json.loads(json_req)
 
     try:
-        # make sure the path exists
-        if not os.path.exists(MODEL_DIR):
-            os.makedirs(MODEL_DIR)
-
-        comet_api = API()
-        comet_api.download_registry_model(
-            COMET_MODEL_INFO["workspace"],
-            COMET_MODEL_INFO["model_name"],
-            COMET_MODEL_INFO["version"],
-            output_path=MODEL_DIR,
-            expand=True,
-        )
-        app.logger.info(f"model downloaded successfully in: {MODEL_PATH}")
-
-        try:
-            with open(MODEL_PATH, "rb") as model_pickle_file:
-                comet_model = pickle.load(model_pickle_file)
-            output_msg = "model downloaded and loaded successfully - for more information check \\logs"
-            app.logger.info("model loaded successfully ...")
-
-        except:
-            output_msg = f"model failed to load from: {MODEL_PATH}"
-            app.logger.exception(f"model failed to load from: {MODEL_PATH}")
-
+        load_model(comet_model_info)
+        output_msg = f"{comet_model_info['file_name']} model loaded successfully ..."
     except:
-        output_msg = "model failed to download - for more information check \\logs"
-        app.logger.exception("model failed to download")
-
-    # Tip: you can implement a "CometMLClient" similar to your App client to abstract all of this
-    # logic and querying of the CometML servers away to keep it clean here
+        output_msg = f"{comet_model_info['file_name']} model failed to be loaded"
+        app.logger.exception(f"{comet_model_info['file_name']} model failed to load")
 
     response = output_msg
 
@@ -183,30 +164,23 @@ def predict():
     data_dct = json.loads(json_req)
     data_df = pd.DataFrame(data_dct)
 
+    global comet_model
+
     # remove the label column if it exists
     data_df = data_df[data_df.columns.difference([LABEL_COL])]
 
     app.logger.info(f"Predicting: {len(data_df)} events")
 
-    # get the prediction and prediction probability
+    # get the predictions
     try:
-
-        with open(MODEL_PATH, "rb") as model_pickle_file:
-            comet_model = pickle.load(model_pickle_file)
-
         y_pred = comet_model.predict(data_df)
-        y_proba = comet_model.predict_proba(data_df)[:, 1]
-
-        app.logger.info(f"Prediction of {LABEL_COL}?: {y_pred}")
-        app.logger.info(f"Probability of the prediction: {y_proba}")
-        
-        pred_df = pd.DataFrame(y_pred, columns=['predictions']) 
+        pred_df = pd.DataFrame(y_pred, columns=["predictions"])
         response = pred_df.to_json()
-        app.logger.info("Predictions and their probabilities retrieved successfully ... ")
+        app.logger.info("Predictions retrieved successfully ... ")
+        app.logger.info(f"predicting {np.sum(y_pred)} goals out of {len(y_pred)}")
 
     except:
-        app.logger.exception(f"model failed to load from: {MODEL_PATH}")
-        app.logger.exception(f"No model to use. comet_model={comet_model}")
+        app.logger.exception(f"model failed to predict the {len(data_df)} events")
         response = None
 
     return jsonify(response)  # response must be json serializable!
