@@ -1,13 +1,12 @@
 import logging
+import os
 import requests
-from utils import process_data
 
+from typing import Callable
 
-# setup basic logging configuration
-logging_format = "[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s"
-logging.basicConfig(format=logging_format, level=logging.INFO)
-logger = logging.getLogger(__name__)
+import pandas as pd
 
+logger = logging.getLogger()
 
 class NHLAPIClient:
     """ A utility class for efficiently retrieving data from the NHL API """
@@ -78,14 +77,3 @@ class NHLAPIClient:
         else:
             content = response.json()
             return parse_game_data(game_id=game_id, game_data=content)
-
-
-if __name__ == "__main__":
-    """For testing only"""
-    game_client = NHLAPIClient()
-    data = game_client.get_game_info()
-    file_path = "./data/2021020329_T.csv"
-    data.to_csv(file_path)
-    data = game_client.get_game_info(from_last_idx=False)
-    file_path = "./data/2021020329_F.csv"
-    data.to_csv(file_path)

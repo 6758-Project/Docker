@@ -1,22 +1,16 @@
 import json
-import requests
-import pandas as pd
 import logging
-from utils import AVAILABLE_MODELS
-from data_preprocessing import (
-    preprocess_xgboost_shap,
-    preprocess_xgboost_lasso,
-    preprocess_xgboost_non_corr_feats,
-)
+import requests
+
+import pandas as pd
+
+from .utils import AVAILABLE_MODELS
+
 
 # setup basic logging configuration
 logging_format = "[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s"
-
 logging.basicConfig(format=logging_format, level=logging.INFO)
-
 logger = logging.getLogger(__name__)
-
-curr_comet_model_name = None
 
 
 class PredictorAPIClient:
