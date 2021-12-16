@@ -393,41 +393,27 @@ LG_ALL_df = pd.DataFrame.from_dict(
 
 
 ## Preprocessing Functions
-def preprocess_for_model(data, model_type):
-    """Preprocess the input data according to the model type"""
+def get_preprocess_function(model_keyword: str):
+    """ Returns preprocessing functions associated with model keywords"""
+    preprocess_functions = {
+        "logreg-dist": lambda data: LG_preprocess(data, dist=True),
+        "logreg-ang": lambda data: LG_preprocess(data, ang=True),
+        "logreg-dist-ang": LG_preprocess,
+        "logreg-all": preprocess_lr_all,
+        "logreg-smote": preprocess_lr_smote,
+        "logreg-non-corr-feats": preprocess_lr_smote,
+        "xgboost-shap": XGB_SHAP_preprocess,
+        "xgboost-lasso": XGB_Lasso_preprocess,
+        "xgboost-non-corr": XGB_Non_Corr_preprocess,
+        "xgboost-smote": XGB_Non_Corr_preprocess,
+        "nn-adv": NN_preprocess,
+    }
 
-    if model_type == "logreg_dist":
-        data_processed = LG_preprocess(data, dist=True)
-
-    if model_type == "logreg_ang":
-        data_processed = LG_preprocess(data, ang=True)
-
-    if model_type == "logreg_dist_ang":
-        data_processed = LG_preprocess(data)
-
-    if model_type == "logreg_all":
-        data_processed = preprocess_lr_all(data)
-
-    if model_type == "logreg_SMOTE" or Model_Type == "logreg_non_corr_feats":
-        data_processed = preprocess_lr_smote(data)
-
-    if model_type == "xgboost_SHAP":
-        data_processed = XGB_SHAP_preprocess(data)
-
-    if model_type == "xgboost_lasso":
-        data_processed = XGB_Lasso_preprocess(data)
-
-    if (
-        model_type == "xgboost_non_corr"
-        or Model_Type == "logreg_SMOTE"
-        or Model_Type == "xgboost_SMOTE"
-    ):
-        data_processed = XGB_Non_Corr_preprocess(data)
-
-    if model_type == "NN_MLP":
-        data_processed = NN_preprocess(data)
-
-    return data_processed
+    if model_keyword not in preprocess_functions.keys():
+        raise ValueError(f"unrecognized model keyword {model_keyword}, \
+                           valid list: {preprocess_functions.keys()}")
+    else:
+        return preprocess_functions[model_keyword]
 
 
 def LG_preprocess(data, dist=False, ang=False):

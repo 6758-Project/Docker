@@ -1,3 +1,5 @@
+from utils import get_preprocess_function
+
 class GameTracker:
     """ Generates a real-time NHL game tracker dashboard"""
 
@@ -19,18 +21,18 @@ class GameTracker:
 
         predicted_events = self.nhl_api_client.get_game_info(
             game_id=game_id,
-            preprocess_func=self.get_preprocess_function(model_id),
+            preprocess_func=get_preprocess_function(model_id),
             incremental_only=incremental_update
         )  # incremental if dashboard model and game are unchanged from last update
 
-        preds = predictor.predict(predicted_events)
+        preds = self.predictor_client.predict(predicted_events)
 
         if incremental_update:
             self.events = pd.concat(self.events, preds)  # append
         else:
             self.events = pd.concat([events, preds], axis=1)  # overwrite
 
-        self.render_dashboard()
+        self.render_dashboard()  # TODO should this be a return?
 
     def render_dashboard(self):
         """ Generates expected dashboard layout """
