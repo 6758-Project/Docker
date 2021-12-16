@@ -880,14 +880,3 @@ def parse_game_data(game_id: str, game_data: dict):
         events_df = add_milestone2_advanced_metrics(events_df)
 
     return events_df
-
-
-def process_data(
-    data,
-    game_id: int = 2021020329,
-    model_type="xgboost_non_corr",
-    data_dir: str = "./data",
-):
-    game_cleaned = parse_game_data(game_id, game_data=data)
-    return game_cleaned
-
