@@ -1,6 +1,6 @@
 """
 If you are in the same directory as this file (app.py), you can run run the app using gunicorn:
-    
+
     $ gunicorn --bind 0.0.0.0:<PORT> app:app
 
 gunicorn can be installed via:
@@ -48,17 +48,10 @@ def load_model(model_info_dct):
 
     model_path = os.path.join(MODEL_DIR, model_info_dct["file_name"] + ".pickle")
 
-    # load  model if found locally
     if os.path.isfile(model_path):
-        app.logger.info(
-            f"[{model_info_dct['file_name']}] model was found in {model_path}"
-        )
+        app.logger.info(f"found {model_info_dct['file_name']} model in {model_path}")
 
-        with open(model_path, "rb") as model_pickle_file:
-            comet_model = pickle.load(model_pickle_file)
-        app.logger.info(f"{model_info_dct['file_name']} model loaded successfully ...")
-
-    else:  # download and load the model
+    else:
         comet_api = API()
         comet_api.download_registry_model(
             model_info_dct["workspace"],
@@ -67,12 +60,11 @@ def load_model(model_info_dct):
             output_path=MODEL_DIR,
             expand=True,
         )
+        app.logger.info(f"downloaded [{model_info_dct['file_name']}]")
 
-        with open(model_path, "rb") as model_pickle_file:
-            comet_model = pickle.load(model_pickle_file)
-        app.logger.info(
-            f"{model_info_dct['file_name']} model was downloaded and loaded successfully ..."
-        )
+    with open(model_path, "rb") as model_pickle_file:
+       comet_model = pickle.load(model_pickle_file)
+       app.logger.info(f"loaded {model_info_dct['file_name']} model")
 
 
 @app.before_first_request
@@ -157,12 +149,9 @@ def predict():
 
     Returns predictions
     """
-    # Get POST json data
-    json_req = request.get_json()
+    requested_preds = request.get_json()
 
-    # predict the datapoint (first row if a dataframe has rows > 1)
-    data_dct = json.loads(json_req)
-    data_df = pd.DataFrame(data_dct)
+    requested_preds = pd.DataFrame(json.loads(requested_preds))
 
     global comet_model
 
@@ -171,13 +160,11 @@ def predict():
 
     app.logger.info(f"Predicting: {len(data_df)} events")
 
-    # get the predictions
     try:
-        y_pred = comet_model.predict(data_df)
-        pred_df = pd.DataFrame(y_pred, columns=["predictions"])
+        y_proba = comet_model.predict_proba(data_df)
+        pred_df = pd.DataFrame(y_proba, columns=["predictions"])
         response = pred_df.to_json()
         app.logger.info("Predictions retrieved successfully ... ")
-        app.logger.info(f"predicting {np.sum(y_pred)} goals out of {len(y_pred)}")
 
     except:
         app.logger.exception(f"model failed to predict the {len(data_df)} events")
