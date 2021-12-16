@@ -174,7 +174,7 @@ def predict():
         app.logger.info("Predictions retrieved successfully ... ")
 
     except:
-        app.logger.exception(f"model failed to predict the {len(data_df)} events")
+        app.logger.exception(f"model failed to predict the {len(requested_preds)} events")
         response = None
 
     return jsonify(response)  # response must be json serializable!
