@@ -12,9 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class NHLAPIClient:
+    """ A utility class for efficiently retrieving data from the NHL API """
+
     def __init__(self, model_type="xgboost_non_corr", raw_game_directory="./data"):
         self.model_type = model_type
         self.raw_game_directory = raw_game_directory
+        # TODO add support for caching
 
     def get_game_info(self, game_id=2021020329, from_last_index=True):
         """
