@@ -303,7 +303,7 @@ NN_SCALE = {
 }
 
 LG_ALL_SCALE = {
-    "column": [
+    "columns": [
         "game_sec",
         "period",
         "coordinate_x",
@@ -473,11 +473,11 @@ def preprocess_lr_all(data):
 
     data = pd.get_dummies(data, ["shot", "prev_event"])
 
-    for col in LG_ALL_SCALE.columns:
+    for col in LG_ALL_SCALE['columns']:
         if col not in data:
             data[col] = 0
 
-    data = data[LG_ALL_SCALE.columns]
+    data = data[LG_ALL_SCALE['columns']]
     data_processed = (data - LG_ALL_df[data.columns].iloc[1]) / LG_ALL_df[
         data.columns
     ].iloc[0]
@@ -499,11 +499,11 @@ def preprocess_lr_smote(data):
     na_mask = data.isnull().any(axis=1)
     data = data[~na_mask]
 
-    for col in LG_ALL_SCALE.columns:
+    for col in LG_ALL_SCALE['columns']:
         if col not in data:
             data[col] = 0
 
-    data = data[LG_ALL_SCALE.columns]
+    data = data[LG_ALL_SCALE['columns']]
     data_processed = (data - LG_ALL_df[data.columns].iloc[1]) / LG_ALL_df[
         data.columns
     ].iloc[0]
@@ -532,7 +532,7 @@ def XGB_SHAP_preprocess(data):
 
     data = pd.get_dummies(data, ["shot", "prev_event"])
 
-    for col in LG_ALL_SCALE.columns:
+    for col in LG_ALL_SCALE['columns']:
         if col not in data:
             data[col] = 0
 
@@ -553,7 +553,7 @@ def XGB_Lasso_preprocess(data):
 
     data = pd.get_dummies(data, ["shot", "prev_event"])
 
-    for col in LG_ALL_SCALE.columns:
+    for col in LG_ALL_SCALE['columns']:
         if col not in data:
             data[col] = 0
 
