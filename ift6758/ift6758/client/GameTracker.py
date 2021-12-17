@@ -2,7 +2,7 @@ import pandas as pd
 
 from .nhl_api_client import UnknownGameException
 from .predictor_api_client import UnknownModelException
-from .utils import get_preprocess_function
+from .utils import get_preprocess_function, EVENT_COLS
 
 class GameTracker:
     """ Generates a real-time NHL game tracker dashboard"""
@@ -13,7 +13,7 @@ class GameTracker:
 
         self.curr_game = None
         self.current_model = None
-        self.events = None
+        self.events = pd.DataFrame(columns=EVENT_COLS)
 
     def update_dashboard(self, game_id, model_id):
         new_model = (self.current_model != model_id)
@@ -36,7 +36,7 @@ class GameTracker:
                 new_model = False
 
         if new_model or new_game:
-            self.events = pd.DataFrame(columns=self.events.columns)  # resets to empty dataframe
+            self.events = pd.DataFrame(columns=EVENT_COLS)  # resets to empty dataframe
 
         preprocessed_events = get_preprocess_function(model_id)(game_events)
 

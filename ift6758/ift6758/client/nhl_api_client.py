@@ -43,6 +43,7 @@ class NHLAPIClient:
 
         elif game_id in self.available_games:
             events = pd.read_csv(os.path.join(self.raw_game_directory, str(game_id)+".csv"))
+            events = events.drop(columns=["Unnamed: 0"], errors='ignore')
         else:
             events = None
 
@@ -51,8 +52,8 @@ class NHLAPIClient:
         if previously_unseen_game or incomplete_game:
             new_events = self.query_api(game_id)
 
-            new_events_detected = len(new_events) >= len(events)
-            if previously_unseen_game or new_events_detected:
+            necessary_to_update_cache = previously_unseen_game or (len(new_events) >= len(events))
+            if necessary_to_update_cache:
                 self.loaded_games[game_id] = new_events
                 new_events.to_csv(os.path.join(self.raw_game_directory, str(game_id)+".csv"))
 

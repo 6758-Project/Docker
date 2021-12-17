@@ -161,7 +161,7 @@ def predict():
     requested_preds = pd.DataFrame(json.loads(requested_preds))
 
     if len(requested_preds) == 0:
-        return jsonify(requested_preds.to_json())
+        return jsonify(pd.DataFrame(columns=["predictions"]).to_json())  # empty df
 
     global comet_model
 

@@ -95,6 +95,20 @@ AVAILABLE_MODELS = {
 }
 
 ## Column and Value Lists
+EVENT_COLS = [
+    'id', 'event_index', 'game_id', 'home_team', 'away_team', 'type',
+    'secondary_type', 'description', 'code', 'period', 'period_type',
+    'time', 'time_remaining', 'date', 'goals_home', 'goals_away',
+    'shooter_team_id', 'shooter_team_name', 'shooter_team_code',
+    'shooter_name', 'shooter_id', 'goalie_name', 'goalie_id',
+    'is_empty_net', 'is_winning_goal', 'strength_name', 'strength_code',
+    'coordinate_x', 'coordinate_y', 'distance_from_net', 'angle', 'is_goal',
+    'game_sec', 'prev_event_type', 'prev_event_x_coord',
+    'prev_event_y_coord', 'prev_event_time_diff',
+    'angle_between_prev_event', 'distance_from_prev_event', 'rebound_angle',
+    'is_rebound', 'speed', 'prediction'
+]
+
 INFREQUENT_STOPPAGE_EVENTS = [
     "PERIOD_START",
     "PERIOD_READY",
@@ -866,5 +880,7 @@ def parse_game_data(game_id: str, game_data: dict):
 
         events_df = add_milestone2_metrics(events_df)
         events_df = add_milestone2_advanced_metrics(events_df)
+
+    events_df = events_df.drop(columns=["Unnamed: 0"], errors='ignore')
 
     return events_df
