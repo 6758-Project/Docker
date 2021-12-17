@@ -26,19 +26,17 @@ class NHLAPIClient:
 
     def get_game_info(
         self,
-        game_id: int,
-        preprocess_func: Callable = None,
-        incremental_only: bool = True
-    ) -> pd.DataFrame:
+        game_id: int
+    ) -> (pd.DataFrame, int):
         """ Returns a dataframe of shots from a given NHL game.
 
         Arguments:
             * game_id: the NHL game id
             * preprocess_func: (optional) a function to apply to the dataframe before returning
-            * incremental_only: whether or not to return only previously-unreturned shots
 
         Returns:
             * a DataFrame of shot events, including the results of preprocessing
+            * previous_returned_idx, the event index returned the last time the game_id was requested
         """
         previous_returned_idx = -1
 
@@ -62,12 +60,7 @@ class NHLAPIClient:
 
                 events = new_events
 
-        events = preprocess_func(events)
-
-        if incremental_only:
-            events = events[events['event_index']>previous_returned_idx]
-
-        return events
+        return events, previous_returned_idx
 
     @staticmethod
     def query_api(game_id: int):
