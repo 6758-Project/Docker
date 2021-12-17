@@ -881,6 +881,7 @@ def parse_game_data(game_id: str, game_data: dict):
         events_df = add_milestone2_metrics(events_df)
         events_df = add_milestone2_advanced_metrics(events_df)
 
-    events_df = events_df.drop(columns=["Unnamed: 0"], errors='ignore')
+    events_df = events_df.drop(columns=["Unnamed: 0", "id"], errors='ignore')
+    events_df = events_df.set_index("event_index")
 
     return events_df

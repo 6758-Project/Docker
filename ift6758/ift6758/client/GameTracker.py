@@ -32,13 +32,15 @@ class GameTracker:
         if new_model or new_game:
             self.events = pd.DataFrame(columns=EVENT_COLS)  # resets to empty
 
-        preprocessed_events = get_preprocess_function(model_id)(game_events)
+        new_event_idx = game_events.index.difference(self.events.index)
+        shot_mask = game_events['type'].isin(['SHOT','GOAL'])
+        new_pred_inputs = game_events.loc[new_event_idx][shot_mask]
 
-        new_pred_inputs = preprocessed_events.iloc[(len(self.events)+1):]
-        # TODO make sure only shots are passed to predict -- then do intelligent join
-        new_preds = self.predictor_client.predict(new_pred_inputs)
+        preprocess = get_preprocess_function(model_id)
+        new_pred_inputs_preprocessed = preprocess(new_pred_inputs)
 
-        new_events = pd.concat([game_events.iloc[(len(self.events)+1):], new_preds], axis=1)
+        new_preds = self.predictor_client.predict(new_pred_inputs_preprocessed)
+        new_events = pd.concat([game_events.loc[new_event_idx], new_preds], axis=1)
         self.events = pd.concat([self.events, new_events])
 
 
