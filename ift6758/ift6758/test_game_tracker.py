@@ -80,6 +80,13 @@ def test_bad_game_id():
 
     assert err_msg == "Game ID xyz not recognized, so dashboard unchanged"
 
+def test_bad_model_id():
+    err_msg = game_tracker.update_dashboard(
+        game_id=2015020002, model_id="xyz"
+    )
+
+    assert "Dashboard unchanged because model_id xyz not recognized" in err_msg
+
 def teardown_function():
     """A hook called by pytest after any tests are run"""
     shutil.rmtree("./tmp_data/")
@@ -94,4 +101,5 @@ if __name__ == '__main__':
     test_game_update()
     test_new_game_2()
     test_bad_game_id()
+    test_bad_model_id()
     teardown_function()

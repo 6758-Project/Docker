@@ -63,7 +63,7 @@ class PredictorAPIClient:
             UnknownModelException
         """
         if comet_model_name not in AVAILABLE_MODELS.keys():
-            err_msg =  f"{comet_model_name} not recognized. Available models: {AVAILABLE_MODELS.keys()}"
+            err_msg =  f"{comet_model_name} not recognized. Valid keywords: {list(AVAILABLE_MODELS.keys())}"
             raise UnknownModelException(err_msg)
         else:
             comet_model_info = AVAILABLE_MODELS[comet_model_name]

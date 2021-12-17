@@ -32,8 +32,8 @@ class GameTracker:
                 self.predictor_client.update_model(model_id)
                 self.current_model = model_id
             except UnknownModelException as ume:
-                err_msg = f"Model unchanged because " + ume.message
-                new_model = False
+                err_msg = f"Dashboard unchanged because model_id " + str(ume)
+                return self.render_dashboard(err_msg=err_msg)
 
         if new_model or new_game:
             self.events = pd.DataFrame(columns=EVENT_COLS)  # resets to empty dataframe
