@@ -7,10 +7,8 @@ import pandas as pd
 from .utils import AVAILABLE_MODELS
 
 
-# setup basic logging configuration
-logging_format = "[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s"
-logging.basicConfig(format=logging_format, level=logging.INFO)
-logger = logging.getLogger(__name__)
+class UnknownModelException(Exception):
+    pass
 
 
 class PredictorAPIClient:
@@ -18,8 +16,6 @@ class PredictorAPIClient:
 
     def __init__(self, ip: str = "0.0.0.0", port: int = 5000):
         self.base_url = f"http://{ip}:{port}"
-        logger.info(f"Initializing client; base URL: {self.base_url}")
-
         self.curr_comet_model_name = None
 
     def predict(self, x_data: pd.DataFrame) -> pd.DataFrame:
@@ -57,23 +53,18 @@ class PredictorAPIClient:
         specified and the service looks for this model in the model registry and tries to
         download it.
 
-        See more here:
-
-            https://www.comet.ml/docs/python-sdk/API/#apidownload_registry_model
+        See more here: https://www.comet.ml/docs/python-sdk/API/#apidownload_registry_model
 
         Args:
             workspace (str): The Comet ML workspace
             model (str): The model in the Comet ML registry to download
             version (str): The model version to download (defaults to most-recent)
+        Raises:
+            UnknownModelException
         """
-
         if comet_model_name not in AVAILABLE_MODELS.keys():
-            logging.exception(
-                f"{comet_model_name} doesn't exist. Available models are: {AVAILABLE_MODELS.keys()}"
-            )
-            logging.info(f"model is still {self.curr_comet_model_name}")
-
-            return None
+            err_msg =  f"{comet_model_name} not recognized. Available models: {AVAILABLE_MODELS.keys()}"
+            raise UnknownModelException(err_msg)
         else:
             comet_model_info = AVAILABLE_MODELS[comet_model_name]
             comet_model_info["workspace"] = workspace

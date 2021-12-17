@@ -58,7 +58,6 @@ def test_game_update():
 
     assert 1 ==1
 
-
 def teardown_function():
     """A hook called by pytest after any tests are run"""
     shutil.rmtree("./tmp_data/")
