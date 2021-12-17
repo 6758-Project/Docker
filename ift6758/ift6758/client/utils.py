@@ -473,11 +473,11 @@ def preprocess_lr_all(data):
 
     data = pd.get_dummies(data, ["shot", "prev_event"])
 
-    for col in LG_ALL_SCALE.columns:
+    for col in LG_ALL_SCALE['column']:
         if col not in data:
             data[col] = 0
 
-    data = data[LG_ALL_SCALE.columns]
+    data = data[LG_ALL_SCALE['column']]
     data_processed = (data - LG_ALL_df[data.columns].iloc[1]) / LG_ALL_df[
         data.columns
     ].iloc[0]
@@ -499,11 +499,11 @@ def preprocess_lr_smote(data):
     na_mask = data.isnull().any(axis=1)
     data = data[~na_mask]
 
-    for col in LG_ALL_SCALE.columns:
+    for col in LG_ALL_SCALE['column']:
         if col not in data:
             data[col] = 0
 
-    data = data[LG_ALL_SCALE.columns]
+    data = data[LG_ALL_SCALE['column']]
     data_processed = (data - LG_ALL_df[data.columns].iloc[1]) / LG_ALL_df[
         data.columns
     ].iloc[0]
@@ -532,7 +532,7 @@ def XGB_SHAP_preprocess(data):
 
     data = pd.get_dummies(data, ["shot", "prev_event"])
 
-    for col in LG_ALL_SCALE.columns:
+    for col in LG_ALL_SCALE['column']:
         if col not in data:
             data[col] = 0
 
@@ -553,7 +553,7 @@ def XGB_Lasso_preprocess(data):
 
     data = pd.get_dummies(data, ["shot", "prev_event"])
 
-    for col in LG_ALL_SCALE.columns:
+    for col in LG_ALL_SCALE['column']:
         if col not in data:
             data[col] = 0
 
@@ -881,6 +881,7 @@ def parse_game_data(game_id: str, game_data: dict):
         events_df = add_milestone2_metrics(events_df)
         events_df = add_milestone2_advanced_metrics(events_df)
 
-    events_df = events_df.drop(columns=["Unnamed: 0"], errors='ignore')
+    events_df = events_df.drop(columns=["Unnamed: 0", "id"], errors='ignore')
+    events_df = events_df.set_index("event_index")
 
     return events_df

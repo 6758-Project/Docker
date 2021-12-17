@@ -1,13 +1,11 @@
 import pandas as pd
 
-from .nhl_api_client import UnknownGameException
-from .predictor_api_client import UnknownModelException
 from .utils import get_preprocess_function, EVENT_COLS
 
 class GameTracker:
-    """ Generates a real-time NHL game tracker dashboard"""
+    """ Generates a real-time NHL game tracker dashboard """
 
-    def __init__(self, nhl_api_client, predictor_client):
+    def __init__(self, nhl_api_client: "NHLAPIClient", predictor_client: "PredictorAPIClient"):
         self.nhl_api_client = nhl_api_client
         self.predictor_client = predictor_client
 
@@ -15,45 +13,36 @@ class GameTracker:
         self.current_model = None
         self.events = pd.DataFrame(columns=EVENT_COLS)
 
-    def update_dashboard(self, game_id, model_id):
+    def update(self, game_id: int, model_id: str):
+        """ Updates state for game_id with model_id predictions
+        Raises: UnknownGameException, UnknownModelException
+        """
         new_model = (self.current_model != model_id)
         new_game = (self.curr_game != game_id)
 
-        try:
-            game_events = self.nhl_api_client.get_game_info(game_id=game_id)
-            self.curr_game = game_id
-        except UnknownGameException as uge:
-            err_msg = f"Game ID {game_id} not recognized, so dashboard unchanged"
-            return self.render_dashboard(err_msg=err_msg)
+        game_events = self.nhl_api_client.get_game_info(game_id=game_id)
 
-        err_msg = None
         if new_model:
-            try:
-                self.predictor_client.update_model(model_id)
-                self.current_model = model_id
-            except UnknownModelException as ume:
-                err_msg = f"Dashboard unchanged because model_id " + str(ume)
-                return self.render_dashboard(err_msg=err_msg)
+            self.predictor_client.update_model(model_id)
+
+        # only update if both API query and model update were successful
+        self.curr_game = game_id
+        self.current_model = model_id
 
         if new_model or new_game:
-            self.events = pd.DataFrame(columns=EVENT_COLS)  # resets to empty dataframe
+            self.events = pd.DataFrame(columns=EVENT_COLS)  # resets to empty
 
-        preprocessed_events = get_preprocess_function(model_id)(game_events)
+        new_event_idx = game_events.index.difference(self.events.index)
+        shot_mask = game_events['type'].isin(['SHOT','GOAL'])
+        new_pred_inputs = game_events.loc[new_event_idx][shot_mask]
 
-        new_pred_inputs = preprocessed_events.iloc[(len(self.events)+1):]
-        new_preds = self.predictor_client.predict(new_pred_inputs)
+        preprocess = get_preprocess_function(model_id)
+        new_pred_inputs_preprocessed = preprocess(new_pred_inputs)
 
-        new_events = pd.concat([game_events.iloc[(len(self.events)+1):], new_preds], axis=1)
+        new_preds = self.predictor_client.predict(new_pred_inputs_preprocessed)
+        new_events = pd.concat([game_events.loc[new_event_idx], new_preds], axis=1)
         self.events = pd.concat([self.events, new_events])
 
-        return self.render_dashboard(err_msg=err_msg)
 
-
-    def render_dashboard(self, err_msg: str = None):
-        """ Generates expected dashboard layout
-
-        Args:
-          * err_msg  if not None, prints over dashboard
-        """
-        # TODO -- will primarily use self.events
-        return err_msg
+    def get_events_and_predictions(self) -> pd.DataFrame:
+        return self.events.iloc[::-1]
