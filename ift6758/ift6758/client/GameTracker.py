@@ -55,4 +55,5 @@ class GameTracker:
         Args:
           * err_msg  if not None, prints over dashboard
         """
-        pass # TODO -- will primarily use self.events
+        # TODO -- will primarily use self.events
+        return err_msg

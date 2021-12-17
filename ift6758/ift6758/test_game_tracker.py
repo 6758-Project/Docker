@@ -1,3 +1,8 @@
+""" Tests for the Game Tracker
+
+If actively developing, use like a normal python script (i.e. calling the main func)
+Otherwise, call via pytest:  python -m pytest test_game_events.py
+"""
 import math
 import os
 import shutil
@@ -5,7 +10,7 @@ import shutil
 import pandas as pd
 import pytest
 
-from client.nhl_api_client import NHLAPIClient
+from client.nhl_api_client import NHLAPIClient, UnknownGameException
 from client.predictor_api_client import PredictorAPIClient
 from client.GameTracker import GameTracker
 
@@ -22,7 +27,10 @@ example = example.drop(columns=["Unnamed: 0"], errors='ignore')
 
 
 def dummy_data_getter(game_id):
-    return example.iloc[:max_example_data_index,:]
+    if not isinstance(game_id, int):
+        raise UnknownGameException(str(game_id))
+    else:
+        return example.iloc[:max_example_data_index,:]
 
 nhl_api.query_api = dummy_data_getter # replacing actual query method with dummy method
 
@@ -65,9 +73,18 @@ def test_new_game_2():
 
     assert len(game_tracker.nhl_api_client.loaded_games) == 2
 
+def test_bad_game_id():
+    err_msg = game_tracker.update_dashboard(
+        game_id='xyz', model_id="logistic-regression-distance-and-angle"
+    )
+
+    assert err_msg == "Game ID xyz not recognized, so dashboard unchanged"
+
 def teardown_function():
     """A hook called by pytest after any tests are run"""
     shutil.rmtree("./tmp_data/")
+
+
 
 
 if __name__ == '__main__':
@@ -75,4 +92,6 @@ if __name__ == '__main__':
     test_new_game()
     test_new_model()
     test_game_update()
+    test_new_game_2()
+    test_bad_game_id()
     teardown_function()
