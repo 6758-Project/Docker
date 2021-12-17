@@ -1,6 +1,6 @@
 import pandas as pd
 
-from client.utils import get_preprocess_function, EVENT_COLS
+from .utils import get_preprocess_function, EVENT_COLS
 
 class GameTracker:
     """ Generates a real-time NHL game tracker dashboard """
