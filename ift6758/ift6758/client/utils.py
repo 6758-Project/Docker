@@ -16,21 +16,21 @@ STANDARDIZED_GOAL_COORDINATES = (89, 0)
 LABEL_COL = "is_goal"
 AVAILABLE_MODELS = {
     "logistic-regression-distance-only": {
-        "model_type": "logreg",
+        "model_type": "logistic-regression",
         "model_desc": "Logistic Regression Distance Only",
         "comet_model_name": "logistic-regression-distance-only",
         "version": "1.0.2",
         "file_name": "LR_distance_only",
     },
     "logistic-regression-angle-only": {
-        "model_type": "logreg",
+        "model_type": "logistic-regression",
         "model_desc": "Logistic Regression Angle Only",
         "comet_model_name": "logistic-regression-angle-only",
         "version": "1.0.3",
         "file_name": "LR_angle_only",
     },
     "logistic-regression-distance-and-angle": {
-        "model_type": "logreg",
+        "model_type": "logistic-regression",
         "model_desc": "Logistic Regression Distance and Angle",
         "comet_model_name": "logistic-regression-distance-and-angle",
         "version": "1.0.2",
@@ -65,14 +65,14 @@ AVAILABLE_MODELS = {
         "file_name": "NN_adv",
     },
     "lr-all-feats": {
-        "model_type": "logreg_all",
+        "model_type": "logistic-regression_all",
         "model_desc": "logistic Regression with all Features in (Q4)",
         "comet_model_name": "lr-all-feats",
         "version": "1.0.0",
         "file_name": "lr_all_feats",
     },
     "lr-non-corr-feats": {
-        "model_type": "logreg_non_corr_feats",
+        "model_type": "logistic-regression_non_corr_feats",
         "model_desc": "Logistic Regression without Correlated Features",
         "comet_model_name": "lr-non-corr-feats",
         "version": "1.0.0",
@@ -86,7 +86,7 @@ AVAILABLE_MODELS = {
         "file_name": "xgboost_SMOTE",
     },
     "lr-SMOTE": {
-        "model_type": "logreg_SMOTE",
+        "model_type": "logistic-regression_SMOTE",
         "model_desc": "Logistic Regression with SMOTE Oversampling",
         "comet_model_name": "lr-SMOTE",
         "version": "1.0.0",
@@ -95,6 +95,20 @@ AVAILABLE_MODELS = {
 }
 
 ## Column and Value Lists
+EVENT_COLS = [
+    'id', 'event_index', 'game_id', 'home_team', 'away_team', 'type',
+    'secondary_type', 'description', 'code', 'period', 'period_type',
+    'time', 'time_remaining', 'date', 'goals_home', 'goals_away',
+    'shooter_team_id', 'shooter_team_name', 'shooter_team_code',
+    'shooter_name', 'shooter_id', 'goalie_name', 'goalie_id',
+    'is_empty_net', 'is_winning_goal', 'strength_name', 'strength_code',
+    'coordinate_x', 'coordinate_y', 'distance_from_net', 'angle', 'is_goal',
+    'game_sec', 'prev_event_type', 'prev_event_x_coord',
+    'prev_event_y_coord', 'prev_event_time_diff',
+    'angle_between_prev_event', 'distance_from_prev_event', 'rebound_angle',
+    'is_rebound', 'speed', 'prediction'
+]
+
 INFREQUENT_STOPPAGE_EVENTS = [
     "PERIOD_START",
     "PERIOD_READY",
@@ -393,41 +407,28 @@ LG_ALL_df = pd.DataFrame.from_dict(
 
 
 ## Preprocessing Functions
-def preprocess_for_model(data, model_type):
-    """Preprocess the input data according to the model type"""
+def get_preprocess_function(model_keyword: str):
+    """ Returns preprocessing functions associated with model keywords"""
+    preprocess_functions = {
+        "logistic-regression-distance-only": lambda data: LG_preprocess(data, dist=True),
+        "logistic-regression-angle-only": lambda data: LG_preprocess(data, ang=True),
+        "logistic-regression-distance-and-angle": LG_preprocess,
+        "lr-all-feats": preprocess_lr_all,
+        "lr-smote": preprocess_lr_smote,
+        "lr-non-corr-feats": preprocess_lr_smote,
+        "xgboost-shap": XGB_SHAP_preprocess,
+        "xgboost-lasso": XGB_Lasso_preprocess,
+        "xgboost-feats-non-corr": XGB_Non_Corr_preprocess,
+        "xgboost-non-corr": XGB_Non_Corr_preprocess,
+        "xgboost-smote": XGB_Non_Corr_preprocess,
+        "nn-adv": NN_preprocess,
+    }
 
-    if model_type == "logreg_dist":
-        data_processed = LG_preprocess(data, dist=True)
-
-    if model_type == "logreg_ang":
-        data_processed = LG_preprocess(data, ang=True)
-
-    if model_type == "logreg_dist_ang":
-        data_processed = LG_preprocess(data)
-
-    if model_type == "logreg_all":
-        data_processed = preprocess_lr_all(data)
-
-    if model_type == "logreg_SMOTE" or Model_Type == "logreg_non_corr_feats":
-        data_processed = preprocess_lr_smote(data)
-
-    if model_type == "xgboost_SHAP":
-        data_processed = XGB_SHAP_preprocess(data)
-
-    if model_type == "xgboost_lasso":
-        data_processed = XGB_Lasso_preprocess(data)
-
-    if (
-        model_type == "xgboost_non_corr"
-        or Model_Type == "logreg_SMOTE"
-        or Model_Type == "xgboost_SMOTE"
-    ):
-        data_processed = XGB_Non_Corr_preprocess(data)
-
-    if model_type == "NN_MLP":
-        data_processed = NN_preprocess(data)
-
-    return data_processed
+    if model_keyword not in preprocess_functions.keys():
+        raise ValueError(f"unrecognized model keyword {model_keyword}, \
+                           valid list: {preprocess_functions.keys()}")
+    else:
+        return preprocess_functions[model_keyword]
 
 
 def LG_preprocess(data, dist=False, ang=False):
@@ -529,7 +530,7 @@ def XGB_SHAP_preprocess(data):
         to_replace=INFREQUENT_STOPPAGE_EVENTS, value="STOP", inplace=True
     )
 
-    data = pd.get_dummies(X_data, ["shot", "prev_event"])
+    data = pd.get_dummies(data, ["shot", "prev_event"])
 
     for col in LG_ALL_SCALE.columns:
         if col not in data:
@@ -570,20 +571,21 @@ def XGB_Non_Corr_preprocess(data):
         to_replace=INFREQUENT_STOPPAGE_EVENTS, value="STOP", inplace=True
     )
 
+    # import pdb; pdb.set_trace()
     data = pd.get_dummies(data, ["shot", "prev_event"])
 
     #    the redundant features after inspecting them in "./notebooks/M2_detect-feat-correlation.ipynb"
     redundant_feats = ["is_rebound", "coordinate_y", "coordinate_x", "period"]
 
     # Training and validation data of the selected features
-    selected_feats = X_data.columns.difference(redundant_feats)
-    X_data = X_data[selected_feats]
-    X_data = X_data.dropna(axis=0)
+    selected_feats = data.columns.difference(redundant_feats)
+    data = data[selected_feats]
+    data = data.dropna(axis=0)
 
     for col in NON_CORR_COLS:
-        if col not in X_data:
-            X_data[col] = 0
-    data_processed = X_data[NON_CORR_COLS]
+        if col not in data:
+            data[col] = 0
+    data_processed = data[NON_CORR_COLS]
 
     return data_processed
 
@@ -879,15 +881,6 @@ def parse_game_data(game_id: str, game_data: dict):
         events_df = add_milestone2_metrics(events_df)
         events_df = add_milestone2_advanced_metrics(events_df)
 
+    events_df = events_df.drop(columns=["Unnamed: 0"], errors='ignore')
+
     return events_df
-
-
-def process_data(
-    data,
-    game_id: int = 2021020329,
-    model_type="xgboost_non_corr",
-    data_dir: str = "./data",
-):
-    game_cleaned = parse_game_data(game_id, game_data=data)
-    return game_cleaned
-
