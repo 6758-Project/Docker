@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from client.nhl_api_client import NHLAPIClient, UnknownGameException
-from client.predictor_api_client import PredictorAPIClient
+from client.predictor_api_client import PredictorAPIClient, UnknownModelException
 from client.GameTracker import GameTracker
 
 
@@ -40,14 +40,14 @@ def setup_function():
         os.makedirs("./tmp_data/")
 
 def test_new_game():
-    game_tracker.update_dashboard(
+    game_tracker.update(
         game_id=2015020001, model_id="xgboost-feats-non-corr"
     )
 
     assert len(game_tracker.nhl_api_client.loaded_games) == 1
 
 def test_new_model():
-    game_tracker.update_dashboard(
+    game_tracker.update(
         game_id=2015020001, model_id="logistic-regression-distance-and-angle"
     )
 
@@ -59,7 +59,7 @@ def test_game_update():
     global max_example_data_index
     max_example_data_index = 40  # 10 new events in dummy example
 
-    game_tracker.update_dashboard(
+    game_tracker.update(
         game_id=2015020001, model_id="logistic-regression-distance-and-angle"
     )
     update_preds = list(game_tracker.events['predictions'])
@@ -67,25 +67,23 @@ def test_game_update():
     assert all([cp == up or (math.isnan(cp) and math.isnan(up)) for cp, up in zip(curr_preds, update_preds)])
 
 def test_new_game_2():
-    game_tracker.update_dashboard(
+    game_tracker.update(
         game_id=2015020002, model_id="logistic-regression-distance-and-angle"
     )
 
     assert len(game_tracker.nhl_api_client.loaded_games) == 2
 
 def test_bad_game_id():
-    err_msg = game_tracker.update_dashboard(
-        game_id='xyz', model_id="logistic-regression-distance-and-angle"
-    )
-
-    assert err_msg == "Game ID xyz not recognized, so dashboard unchanged"
+    with pytest.raises(UnknownGameException):
+        game_tracker.update(
+            game_id='xyz', model_id="logistic-regression-distance-and-angle"
+        )
 
 def test_bad_model_id():
-    err_msg = game_tracker.update_dashboard(
+    with pytest.raises(UnknownModelException):
+        game_tracker.update(
         game_id=2015020002, model_id="xyz"
-    )
-
-    assert "Dashboard unchanged because model_id xyz not recognized" in err_msg
+        )
 
 def teardown_function():
     """A hook called by pytest after any tests are run"""
