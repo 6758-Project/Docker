@@ -160,6 +160,9 @@ def predict():
     requested_preds = request.get_json()
     requested_preds = pd.DataFrame(json.loads(requested_preds))
 
+    if len(requested_preds) == 0:
+        return jsonify(requested_preds.to_json())
+
     global comet_model
 
     # remove the label column if it exists

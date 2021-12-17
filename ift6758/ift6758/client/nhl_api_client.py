@@ -9,6 +9,7 @@ from .utils import parse_game_data
 
 logger = logging.getLogger()
 
+
 class NHLAPIClient:
     """ A utility class for efficiently retrieving data from the NHL API """
 
@@ -52,11 +53,10 @@ class NHLAPIClient:
 
         previously_unseen_game = events is None
         incomplete_game = previously_unseen_game or ("Game End" not in list(events['description']))
-
         if previously_unseen_game or incomplete_game:
             new_events = self.query_api(game_id)
 
-            if previously_unseen_game or (len(new_event) >= len(events)):
+            if previously_unseen_game or (len(new_events) >= len(events)):
                 self.loaded_games[game_id] = new_events
                 new_events.to_csv(os.path.join(self.raw_game_directory, str(game_id)+".csv"))
 

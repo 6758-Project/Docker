@@ -557,6 +557,7 @@ def XGB_Non_Corr_preprocess(data):
         to_replace=INFREQUENT_STOPPAGE_EVENTS, value="STOP", inplace=True
     )
 
+    # import pdb; pdb.set_trace()
     data = pd.get_dummies(data, ["shot", "prev_event"])
 
     #    the redundant features after inspecting them in "./notebooks/M2_detect-feat-correlation.ipynb"
