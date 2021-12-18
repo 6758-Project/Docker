@@ -1,3 +1,4 @@
 #!/bin/bash
 
-echo "TODO: fill in the docker build command"
+echo "Build docker command"
+docker build --tag app_server -f Dockerfile.serving . --rm=False
