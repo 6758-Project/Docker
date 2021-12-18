@@ -8,7 +8,7 @@
 
 # https://docs.docker.com/engine/reference/builder/#from
 # You shouldn't need to change this
-FROM python:3.7
+FROM python:3.9.7
 
 # https://docs.docker.com/engine/reference/builder/#workdir
 # Create and cd into /code as your working directory
@@ -47,6 +47,7 @@ ENV COMET_API_KEY = $COMET_API_KEY
 # TODO: add code, optionally a default model if you want 
 ADD ./ift6758/requirements.txt requirements.txt
 ADD app.py app.py
+ADD ./ift6758/ /code/ift6758
 
 
 # TODO: install libs

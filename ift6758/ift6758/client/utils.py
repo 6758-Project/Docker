@@ -94,6 +94,18 @@ AVAILABLE_MODELS = {
     },
 }
 
+MODEL_OPTIONS = ["logistic-regression-distance-only",
+                "logistic-regression-angle-only",
+                "logistic-regression-distance-and-angle",
+                "xgboost-lasso",
+                "xgboost-shap",
+                "xgboost-feats-non-corr",
+                "nn-adv",
+                "lr-all-feats",
+                "lr-non-corr-feats",
+                "xgboost-SMOTE",
+                "lr-SMOTE",]
+
 ## Column and Value Lists
 EVENT_COLS = [
     'id', 'event_index', 'game_id', 'home_team', 'away_team', 'type',
@@ -414,13 +426,13 @@ def get_preprocess_function(model_keyword: str):
         "logistic-regression-angle-only": lambda data: LG_preprocess(data, ang=True),
         "logistic-regression-distance-and-angle": LG_preprocess,
         "lr-all-feats": preprocess_lr_all,
-        "lr-smote": preprocess_lr_smote,
+        "lr-SMOTE": preprocess_lr_smote,
         "lr-non-corr-feats": preprocess_lr_smote,
         "xgboost-shap": XGB_SHAP_preprocess,
         "xgboost-lasso": XGB_Lasso_preprocess,
         "xgboost-feats-non-corr": XGB_Non_Corr_preprocess,
         "xgboost-non-corr": XGB_Non_Corr_preprocess,
-        "xgboost-smote": XGB_Non_Corr_preprocess,
+        "xgboost-SMOTE": XGB_Non_Corr_preprocess,
         "nn-adv": NN_preprocess,
     }
 
@@ -536,7 +548,7 @@ def XGB_SHAP_preprocess(data):
         if col not in data:
             data[col] = 0
 
-    data = data[SHAP_COLS]
+    data_processed = data[SHAP_COLS]
 
     return data_processed
 
@@ -608,6 +620,10 @@ def NN_preprocess(data):
 
     data_processed = data_processed.fillna(0)
 
+    for col in NN_SCALE["column"]:
+        if col not in data_processed:
+            data_processed[col] = 0
+    
     return data_processed
 
 
