@@ -8,7 +8,7 @@
 
 # https://docs.docker.com/engine/reference/builder/#from
 # You shouldn't need to change this
-FROM python:3.7
+FROM python:3.9.7
 
 # https://docs.docker.com/engine/reference/builder/#workdir
 # Create and cd into /code as your working directory
@@ -45,8 +45,8 @@ WORKDIR /code
 
 # TODO: add code, optionally a default model if you want 
 ADD ./ift6758/requirements.txt requirements.txt
-ADD ./ift6758/ift6758 /code/notebooks/ift6758
-ADD ./notebooks/Game_Dashboard.ipynb /code/notebooks/Game_Dashboard.ipynb
+ADD ./ift6758/ift6758 /code/ift6758
+ADD ./notebooks/Game_Dashboard.ipynb /code/Game_Dashboard.ipynb
 
 
 # TODO: install libs
