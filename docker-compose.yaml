@@ -13,8 +13,8 @@ services:
 #    image: ift6758/serving:<TAG>
     ports:
       - 5000:5000
-#    environment:
-#      - COMET_API_KEY=${COMET_API_KEY}
+    environment:
+      - COMET_API_KEY=${COMET_API_KEY}
 
 
       
