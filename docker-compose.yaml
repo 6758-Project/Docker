@@ -10,7 +10,9 @@ services:
 #      - ./:/code
 #      args:
 #        ARG: <ARG>
-#    image: ift6758/serving:<TAG>
+    image: ift6758_prediction_app:latest
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
     ports:
       - 5000:5000
     environment:
@@ -18,17 +20,21 @@ services:
 
 
       
-###### Uncomment below when you're ready to add the final notebook container to your docker compose
-##  jupyter:
-##    build:
-##      context: ./
-##      dockerfile: ./Dockerfile.jupyter
-##      args:
-##        ARG: <ARG>
-##    image: ift6758/jupyter:<TAG>
-##    ports:
-##      - <JUPYTER_PORT>:<JUPYTER_PORT>
-##    environment:
-##      OTHER_DOCKER_ENV_VAR = ${OTHER_LOCAL_ENV_VAR}
+#### Uncomment below when you're ready to add the final notebook container to your docker compose
+  jupyter:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile.jupyter
+#    args:
+#      ARG: <ARG>
+    image: ift6758_jupyter_app:latest
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    depends_on:
+      - "serving"
+    ports:
+      - 4000:4000
+#  environment:
+#    OTHER_DOCKER_ENV_VAR = ${OTHER_LOCAL_ENV_VAR}
       
 
